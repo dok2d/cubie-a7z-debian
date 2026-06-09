@@ -43,8 +43,9 @@ PROFILE="$SWAY_HOME/.bash_profile"
 if ! grep -q 'exec sway' "$PROFILE" 2>/dev/null; then
   cat >> "$PROFILE" << 'AUTOSWAY'
 
-# Auto-start Sway on tty1
+# Auto-start Sway on tty1 (force card0 for display, card1 has no KMS)
 if [ "$(tty)" = "/dev/tty1" ] && [ -z "$WAYLAND_DISPLAY" ]; then
+  export WLR_DRM_DEVICES=/dev/dri/card0
   exec sway
 fi
 AUTOSWAY
