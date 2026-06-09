@@ -353,8 +353,10 @@ Section "Device"
     Identifier  "Allwinner Graphics"
     Driver      "modesetting"
     Option      "kmsdev"        "/dev/dri/card0"
-    Option      "AccelMethod"   "glamor"
-    Option      "DRI"           "3"
+    # glamor + PVR initializes but kills HDMI signal during rendering.
+    # Keep software rendering until glamor/PVR display pipeline is fixed.
+    Option      "AccelMethod"   "none"
+    Option      "DRI"           "2"
 EndSection
 Section "Screen"
     Identifier  "Default Screen"
