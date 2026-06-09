@@ -23,6 +23,7 @@ Updated: 2026-06-08
 - **GPU build /gcc not found** → LICHEE_TOOLCHAIN_PATH/LICHEE_CROSS_COMPILER were unset; fixed
 - **GPU .SECONDARY/.NOTINTERMEDIATE** → GNU Make 4.4+ conflict; .SECONDARY patched at build time
 - **CPU freq scaling** → schedutil works: A55 up to 1794 MHz, A76 up to 2002 MHz (previously thought broken)
+- **GPU software rendering** → PVR Mesa from allwinner-target overlay was in rootfs but not activated. Fix: `LD_LIBRARY_PATH=/usr/local/lib` in `/etc/environment`, `AccelMethod "glamor"` in Xorg config, `libxcb-dri2-0` package. Result: `glamor X acceleration enabled on PowerVR B-Series BXM-4-64`
 
 ## Open
 
@@ -30,15 +31,11 @@ Updated: 2026-06-08
 - **Chip is not soldered** on this board SKU. DTS node kept for compatibility.
 - Does not affect operation — dmesg errors at boot are expected.
 
-### GPU: software rendering (llvmpipe)
-- pvrsrvkm loaded, PVR DDK OK, renderD128 accessible
-- PVR vendor libraries installed (GLES, Vulkan, OpenCL) in `/usr/lib/`
-- But Debian Mesa is **not compiled with pvr gallium driver**
-- Xorg uses modesetting on card0 (sunxi-drm) with `AccelMethod "none"`
-- card1 (PowerVR) does not support KMS dumb buffer — cannot be display
-- Result: `glxinfo` → `llvmpipe (LLVM 19.1.7)`, Firefox ~190% CPU
-- **What fixing it unlocks**: hardware GL/GLES/Vulkan, dramatic CPU load reduction
-- Needs: build Mesa with `-Dgallium-drivers=pvr` (BXM-4-64 supported by upstream Mesa 25.3+)
+### GLX still reports llvmpipe
+- Xorg glamor uses EGL+PVR hardware (confirmed working)
+- But `glxinfo` shows llvmpipe because Debian GLVND dispatches GLX to system Mesa
+- Does not affect actual rendering — glamor bypasses GLX
+- Firefox/apps using EGL get hardware acceleration; GLX-only apps fall back to software
 
 ### ET7304Y TCPC: probe failed -22
 - Chip found on I2C bus 14 addr 0x4E

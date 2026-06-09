@@ -8,11 +8,11 @@ Known issues: [known-issues-en.md](known-issues-en.md)
 
 ---
 
-## Working (verified on hardware 2026-06-08)
+## Working (verified on hardware 2026-06-09)
 
 - WiFi: network connection, DHCP, internet (radxa-pkg/aic8800), wlan0, autostart
 - USB-C host: HID (keyboard), VBUS via PL2 GPIO
-- GPU: pvrsrvkm, renderD128, card0+card1
+- **GPU: glamor acceleration on PowerVR BXM-4-64** (PVR Mesa via allwinner-target overlay)
 - HDMI: video (1080p) + audio (sndhdmi)
 - PCIe: controller visible (root port)
 - NPU: /dev/vipcore, vpm_run, ResNet50 inference 7.5ms
@@ -30,8 +30,7 @@ Known issues: [known-issues-en.md](known-issues-en.md)
 
 | # | Task | Priority | Blocker | What it unlocks |
 |---|------|----------|---------|-----------------|
-| 1 | GPU acceleration (Mesa PVR) | High | Build Mesa with `-Dgallium-drivers=pvr` | Hardware GL/GLES/Vulkan — currently llvmpipe (CPU), Firefox uses 190% CPU. BXM-4-64 supported by upstream Mesa 25.3+ |
-| 2 | ET7304Y port nodes | Medium | Reverse-engineer vendor driver or port nodes | USB-C PD negotiation — charging from PD adapters, DP Alt Mode via typec framework |
+| 1 | ET7304Y port nodes | Medium | Reverse-engineer vendor driver or port nodes | USB-C PD negotiation — charging from PD adapters, DP Alt Mode via typec framework |
 | 3 | Camera MIPI CSI | Low | Need Radxa Camera 8M 219 | /dev/video*, photo/video capture, AI inference from camera via NPU |
 | 4 | Fan PWM | Low | Need Radxa Heatsink 6530B | Active cooling (73C without fan), thermal throttling policy |
 | 5 | PCIe + NVMe | Low | Need Radxa PCIe to M.2 M Key HAT + drive | Fast storage (~1 GB/s), NVMe boot (via SPI NOR boot) |

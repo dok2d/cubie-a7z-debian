@@ -8,11 +8,11 @@
 
 ---
 
-## Работает (проверено на железе 2026-06-08)
+## Работает (проверено на железе 2026-06-09)
 
 - WiFi: подключение к сети, DHCP, интернет (radxa-pkg/aic8800), wlan0, автостарт
 - USB-C host: HID (клавиатура), VBUS через PL2 GPIO
-- GPU: pvrsrvkm, renderD128, card0+card1
+- **GPU: glamor ускорение на PowerVR BXM-4-64** (PVR Mesa через allwinner-target overlay)
 - HDMI: видео (1080p) + аудио (sndhdmi)
 - PCIe: контроллер виден (root port)
 - NPU: /dev/vipcore, vpm_run, ResNet50 inference 7.5ms
@@ -30,8 +30,7 @@
 
 | # | Задача | Приоритет | Блокер | Что даст |
 |---|--------|-----------|--------|----------|
-| 1 | GPU acceleration (Mesa PVR) | Высокий | Собрать Mesa с `-Dgallium-drivers=pvr` | Аппаратный GL/GLES/Vulkan — сейчас llvmpipe (CPU), Firefox съедает 190% CPU. BXM-4-64 поддерживается upstream Mesa 25.3+ |
-| 2 | ET7304Y port nodes | Средний | Реверс vendor драйвера или port nodes | USB-C PD negotiation — зарядка от PD-адаптера, DP Alt Mode через typec framework |
+| 1 | ET7304Y port nodes | Средний | Реверс vendor драйвера или port nodes | USB-C PD negotiation — зарядка от PD-адаптера, DP Alt Mode через typec framework |
 | 3 | Camera MIPI CSI | Низкий | Нужна физическая камера (Radxa Camera 8M 219) | /dev/video*, фото/видео захват, AI inference с камеры через NPU |
 | 4 | Fan PWM | Низкий | Нужен Radxa Heatsink 6530B | Активное охлаждение (73C без кулера), thermal throttling policy |
 | 5 | PCIe + NVMe | Низкий | Radxa PCIe to M.2 M Key HAT + диск | Быстрое хранилище (~1 GB/s), загрузка с NVMe (через SPI NOR boot) |
