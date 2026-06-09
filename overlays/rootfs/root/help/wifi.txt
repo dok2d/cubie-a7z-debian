@@ -1,0 +1,33 @@
+Cubie A7Z — WiFi Setup
+=======================
+
+1. Edit /etc/wpa_supplicant/wpa_supplicant.conf and add your network:
+
+    network={
+        ssid="YourNetworkName"
+        psk="YourPassword"
+    }
+
+2. Bring the interface up:
+
+    ifup wlan0
+
+   Or restart networking entirely:
+
+    systemctl restart networking
+
+3. Verify:
+
+    ip addr show wlan0       # should have an IP
+    ping -c3 8.8.8.8         # should work
+
+WiFi connects automatically on boot once configured.
+
+Troubleshooting
+---------------
+- Check wpa_supplicant:   journalctl -b -u networking
+- Manual wpa_supplicant:  wpa_supplicant -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf -B
+- Manual DHCP:            dhclient wlan0
+- Scan for networks:      iw dev wlan0 scan | grep SSID
+- Interface missing?      Check: lsmod | grep aic8800
+                          Reload: modprobe aic8800_fdrv

@@ -1,0 +1,22 @@
+# Fetched vendor sources — downloaded by 00-fetch-sources.sh
+/sources/*
+!/sources/.gitkeep
+
+/build/
+
+# Deb package cache
+/build/deb-cache/
+
+# Temporary files
+/tmp/
+
+# Editor / OS noise
+*.swp
+*.swo
+.DS_Store
+__pycache__/
+*.pyc
+
+# Local env overrides
+.env.local
+*.local

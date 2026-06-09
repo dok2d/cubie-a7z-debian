@@ -1,0 +1,45 @@
+From c849aad3f4a908ba9fa01cc699cc833e50492b5b Mon Sep 17 00:00:00 2001
+From: Cubie A7Z Build <build@cubie-a7z>
+Date: Thu, 4 Jun 2026 11:49:51 +0000
+Subject: [PATCH] fix: use ENV_IS_NOWHERE to prevent ext4 rootfs corruption
+
+CONFIG_ENV_IS_IN_EXT4 writes env to rootfs ext4 without updating metadata
+checksums, corrupting filesystem on every boot. Switch to ENV_IS_NOWHERE.
+Add CONFIG_ENV_SIZE fallback in sunxi-common.h (vendor code references it
+even when Kconfig drops it under ENV_IS_NOWHERE).
+---
+ configs/sun60iw2p1_t736_defconfig | 2 +-
+ include/configs/sunxi-common.h    | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/configs/sun60iw2p1_t736_defconfig b/configs/sun60iw2p1_t736_defconfig
+index 75cd969..66b3e0a 100644
+--- a/configs/sun60iw2p1_t736_defconfig
++++ b/configs/sun60iw2p1_t736_defconfig
+@@ -118,7 +118,7 @@ CONFIG_ENV_VARS_UBOOT_CONFIG=y
+ 
+ CONFIG_EXT4_WRITE=y
+ CONFIG_CMD_EXT4_WRITE=y
+-CONFIG_ENV_IS_IN_EXT4=y
++CONFIG_ENV_IS_NOWHERE=y
+ #CONFIG_ENV_IS_IN_SUNXI_FLASH=y
+ 
+ CONFIG_CMD_SF=y
+diff --git a/include/configs/sunxi-common.h b/include/configs/sunxi-common.h
+index ad0403c..340316a 100644
+--- a/include/configs/sunxi-common.h
++++ b/include/configs/sunxi-common.h
+@@ -12,6 +12,10 @@
+ #ifndef _SUNXI_COMMON_CONFIG_H
+ #define _SUNXI_COMMON_CONFIG_H
+ 
++#ifndef CONFIG_ENV_SIZE
++#define CONFIG_ENV_SIZE 0x20000
++#endif
++
+ #include <asm/arch/cpu.h>
+ #include <linux/stringify.h>
+ 
+-- 
+2.39.5
+
