@@ -3,18 +3,12 @@
 # Run as root. Requires internet (WiFi must be configured first).
 #
 # After install, labwc starts automatically on tty1 login.
-#
-# WARNING: labwc needs DRM/KMS with dumb buffer support. On Cubie A7Z,
-# card0 (sunxi-drm) supports it but card1 (PowerVR) does not.
-# If labwc fails, use install-xfce.sh (X11) instead.
+# GPU: PowerVR BXM-4-64 hardware acceleration via PVR Mesa EGL.
 
 set -e
 echo "=== Installing labwc (Wayland) ==="
 echo "This will download ~150 MB and use ~400 MB disk space."
-echo ""
-echo "WARNING: Wayland requires DRM/KMS with dumb buffer support."
-echo "PowerVR GPU (card1) does NOT support it."
-echo "If labwc fails to start, use install-xfce.sh or install-i3.sh instead."
+echo "GPU: PowerVR BXM-4-64 hardware acceleration enabled."
 echo ""
 echo "Press Ctrl+C to cancel, Enter to continue..."
 read -r
@@ -60,6 +54,6 @@ AEOF
 echo ""
 echo "=== labwc installed ==="
 echo "Reboot — labwc starts automatically (autologin as $LABWC_USER on tty1)."
-echo "If it fails, use install-xfce.sh or install-i3.sh (X11) instead."
 echo ""
-echo "GPU: PowerVR BXM-4-64 — Vulkan 1.3 and OpenGL ES 3.2 available."
+echo "GPU: PowerVR BXM-4-64 hardware acceleration via PVR Mesa EGL."
+echo "     OpenGL ES 3.2, Vulkan 1.3, OpenCL 3.0 available."
