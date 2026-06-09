@@ -9,13 +9,10 @@ Files:
   install-xfce.sh   XFCE4 desktop (X11, lightweight, recommended for 1GB RAM)
   install-i3.sh     i3 tiling WM (X11, minimal)
   install-lxqt.sh   LXQt desktop (X11, Qt-based)
-  install-sway.sh   Sway tiling WM (Wayland, needs DRM — may not work with PowerVR)
-  install-labwc.sh  labwc compositor (Wayland, needs DRM — may not work with PowerVR)
+  install-sway.sh   Sway tiling WM (Wayland)
+  install-labwc.sh  labwc compositor (Wayland)
 
 Recommended for 1GB RAM: XFCE or i3 (X11).
-Wayland compositors (sway/labwc) need DRM with dumb buffer support.
-PowerVR GPU (card1) does NOT support it — Wayland will use sunxi-drm (card0)
-which is software rendering. X11 options are more reliable.
 
 Usage:
   bash /root/help/install-xfce.sh
@@ -25,10 +22,16 @@ After install, reboot — desktop starts automatically on HDMI:
   Wayland (sway/labwc): via autologin on tty1 + .bash_profile
 Connect a USB keyboard to the top USB-C port (J4).
 
-Notes:
-  - x11-common.service is masked by Debian Trixie — install scripts unmask it
-  - Xorg uses modesetting driver on /dev/dri/card0 (sunxi-drm)
-  - /dev/dri/card1 (PowerVR) is for 3D acceleration only, not display
+GPU acceleration:
+  PowerVR BXM-4-64 hardware acceleration is enabled out of the box:
+  - OpenGL ES 3.2 (via glamor EGL on Xorg, PVR Mesa in /usr/local/lib/)
+  - Vulkan 1.3 (libVK_IMG.so, ICD in /etc/vulkan/icd.d/)
+  - OpenCL 3.0 (libPVROCL.so, ICD in /etc/OpenCL/vendors/)
+  Xorg uses modesetting + glamor on /dev/dri/card0 (sunxi-drm display).
+  /dev/dri/card1 (PowerVR) provides 3D rendering via render node.
 
 Hardware tests:
   bash /root/tests/test-all.sh
+
+GPU demo (renders on HDMI):
+  bash /root/tests/test-gpu-demo.sh

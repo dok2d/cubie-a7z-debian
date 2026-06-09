@@ -21,11 +21,8 @@ apt install -y --no-install-recommends \
   network-manager-gnome \
   pulseaudio pavucontrol
 
-# fbdev driver — PowerVR (card1) doesn't support KMS dumb buffer,
-# sunxi-drm (card0) works with modesetting (configured by vendor overlay)
-if [ ! -f /usr/lib/xorg/modules/drivers/pvr_drv.so ]; then
-  apt install -y --no-install-recommends xserver-xorg-video-fbdev
-fi
+# GPU benchmark (optional but useful for verifying acceleration)
+apt install -y --no-install-recommends glmark2-es2 2>/dev/null || true
 
 # Unmask x11-common if masked (Debian Trixie masks it by default)
 systemctl unmask x11-common.service 2>/dev/null || true
@@ -38,3 +35,7 @@ echo "=== XFCE4 installed ==="
 echo "Reboot to start XFCE via lightdm on HDMI."
 echo "Or right now: systemctl start lightdm"
 echo "Connect HDMI and USB keyboard (J4 port) to use."
+echo ""
+echo "GPU: PowerVR BXM-4-64 hardware acceleration is enabled (glamor)."
+echo "     OpenGL ES 3.2, Vulkan 1.3, OpenCL 3.0 available."
+echo "     Benchmark: glmark2-es2"
