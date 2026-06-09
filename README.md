@@ -54,7 +54,7 @@ sudo apt install qemu-user-static binfmt-support
 
 # Build in container (recommended)
 podman build -t cubie-builder -f docker/Dockerfile.builder .
-podman run --rm --user root -v .:/work:Z,exec cubie-builder make all
+podman run --rm --privileged --user root -v .:/work:Z cubie-builder make all
 
 # Or with Docker
 docker build -t cubie-builder -f docker/Dockerfile.builder .

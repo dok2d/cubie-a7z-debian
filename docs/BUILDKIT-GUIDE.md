@@ -42,7 +42,7 @@ docker run --rm -v $(pwd):/work cubie-builder make all
 
 # Podman (rootless)
 podman build -t cubie-builder -f docker/Dockerfile.builder .
-podman run --rm --user root -v .:/work:Z,exec cubie-builder make all
+podman run --rm --privileged --user root -v .:/work:Z cubie-builder make all
 ```
 
 ### Verify Dependencies

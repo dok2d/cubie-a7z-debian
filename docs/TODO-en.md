@@ -48,5 +48,5 @@ Building in a container (Docker/Podman):
 
 ```bash
 podman build -t cubie-builder -f docker/Dockerfile.builder .
-podman run --rm --user root -v .:/work:Z,exec cubie-builder make all
+podman run --rm --privileged --user root -v .:/work:Z cubie-builder make all
 ```
