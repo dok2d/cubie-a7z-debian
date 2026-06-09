@@ -79,7 +79,7 @@ PACKAGES+=",systemd-timesyncd,gnupg,psmisc,lsof,bzip2,xz-utils,unzip,rsync,scree
 PACKAGES+=",libedit2,libevent-core-2.1-7t64,libgdbm6t64,libjemalloc2,libpipeline1,libpopt0"
 # bluez (bluetoothctl) deps
 PACKAGES+=",libglib2.0-0t64,libdw1t64,libatomic1"
-PACKAGES+=",libdrm2,libexpat1,libstdc++6"
+PACKAGES+=",libdrm2,libexpat1,libstdc++6,libxcb-dri2-0,libxcb-dri3-0,libxcb-present0,libxcb-sync1,libxcb-xfixes0"
 # systemd private libs
 PACKAGES+=",libsystemd-shared,libapparmor1"
 # kmod (systemd-modules-load needs libkmod), iproute2 needs libbpf
@@ -330,6 +330,27 @@ mkdir -p "$ROOTFS_DIR/usr/lib/xorg/modules/drivers"
 cp -a "$OVERLAY/usr/lib/xorg/modules/"*    "$ROOTFS_DIR/usr/lib/xorg/modules/"
 mkdir -p "$ROOTFS_DIR/etc/X11/xorg.conf.d"
 cp -a "$OVERLAY/etc/X11/xorg.conf.d/"*     "$ROOTFS_DIR/etc/X11/xorg.conf.d/"
+
+# GPU acceleration: PVR Mesa in /usr/local/lib/ needs LD_LIBRARY_PATH and glamor
+echo 'LD_LIBRARY_PATH=/usr/local/lib' > "$ROOTFS_DIR/etc/environment"
+cat > "$ROOTFS_DIR/etc/X11/xorg.conf.d/20-modesetting.conf" << 'XORGEOF'
+Section "Device"
+    Identifier  "Allwinner Graphics"
+    Driver      "modesetting"
+    Option      "kmsdev"        "/dev/dri/card0"
+    Option      "AccelMethod"   "glamor"
+    Option      "DRI"           "3"
+EndSection
+Section "Screen"
+    Identifier  "Default Screen"
+    Device      "Allwinner Graphics"
+    Monitor     "Default Monitor"
+EndSection
+Section "Monitor"
+    Identifier  "Default Monitor"
+    Option      "Rotate" "normal"
+EndSection
+XORGEOF
 
 # Install NPU userland (VIPLite runtime + vpm_run + test models)
 AI_SDK="$REPO_ROOT/sources/ai-sdk"
