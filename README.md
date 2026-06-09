@@ -1,6 +1,27 @@
 # Cubie A7Z Debian
 
-Reproducible Debian Trixie (arm64) image builder for the **Radxa Cubie A7Z** — a compact SBC powered by the Allwinner A733 octa-core SoC.
+Reproducible Debian Trixie (arm64) on linux 6.6.98+ image builder for the **Radxa Cubie A7Z** — a compact SBC powered by the Allwinner A733 octa-core SoC.
+
+```bash
+root@cubie-a7z:~# screenfetch 
+         _,met$$$$$gg.           root@cubie-a7z
+      ,g$$$$$$$$$$$$$$$P.        OS: Debian 
+    ,g$$P""       """Y$$.".      Kernel: aarch64 Linux 6.6.98+
+   ,$$P'              `$$$.      Uptime: 2m
+  ',$$P       ,ggs.     `$$b:    Packages: 676
+  `d$$'     ,$P"'   .    $$$     Shell: bash 5.2.37
+   $$P      d$'     ,    $$P     Disk: 2.3G / 62G (4%)
+   $$:      $$.   -    ,d$$'     CPU: ARM Cortex-A55 Cortex-A76 @ 8x 1.794GHz
+   $$\;      Y$b._   _,d$P'      RAM: 230MiB / 891MiB
+   Y$$.    `.`"Y$$$$P"'         
+   `$$b      "-.__              
+    `Y$$                        
+     `Y$$.                      
+       `$$b.                    
+         `Y$$b.                 
+            `"Y$b._             
+                `""""
+```    
 
 > WiFi, GPU, NPU, HDMI, USB-C, Bluetooth, PCIe — all working out of the box.
 
