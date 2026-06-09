@@ -79,7 +79,7 @@ for dm in lightdm sddm; do systemctl stop "$dm" 2>/dev/null; done
 pkill -x Xorg 2>/dev/null; pkill -x sway 2>/dev/null
 sleep 1
 cd /opt/quake2-kmsdrm
-exec ./quake2 +set vid_renderer vk "$@"
+exec ./quake2 +set vid_renderer gles3 "$@"
 LAUNCHER
 chmod +x /usr/local/bin/quake2-kmsdrm
 
@@ -88,7 +88,7 @@ cat > /usr/local/bin/quake2-yamagi << 'LAUNCHER'
 #!/bin/bash
 export LD_LIBRARY_PATH=/usr/local/lib:/opt/quake2-kmsdrm
 cd /opt/quake2-kmsdrm
-exec ./quake2 +set vid_renderer vk "$@"
+exec ./quake2 +set vid_renderer gles3 "$@"
 LAUNCHER
 chmod +x /usr/local/bin/quake2-yamagi
 
@@ -142,7 +142,7 @@ if [ -f "$INSTALLDIR/quake2" ]; then
   echo ""
   echo "Full game: copy baseq2/ from GOG/Steam Quake II to $Q2DIR/"
   echo ""
-  echo "GPU: PowerVR BXM-4-64 — Vulkan 1.3 direct to framebuffer"
+  echo "GPU: PowerVR BXM-4-64 — OpenGL ES 3.2 direct to framebuffer (KMSDRM)"
 else
   echo "ERROR: Build failed."
 fi
