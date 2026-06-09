@@ -344,6 +344,10 @@ cat > "$ROOTFS_DIR/etc/vulkan/icd.d/pvr_icd.json" << 'VKEOF'
     }
 }
 VKEOF
+# OpenCL ICD for PowerVR
+mkdir -p "$ROOTFS_DIR/etc/OpenCL/vendors"
+echo '/usr/lib/libPVROCL.so' > "$ROOTFS_DIR/etc/OpenCL/vendors/pvr.icd"
+
 cat > "$ROOTFS_DIR/etc/X11/xorg.conf.d/20-modesetting.conf" << 'XORGEOF'
 Section "Device"
     Identifier  "Allwinner Graphics"
