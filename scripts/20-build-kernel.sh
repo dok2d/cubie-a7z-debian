@@ -21,6 +21,7 @@ INITRD_IMAGE=initrd.img-6.6.98-$BOARD
 
 log() { echo "[$(date -u +%FT%H:%M:%SZ)] ==> $*"; }
 
+KERNEL_RELEASE=6.6.98+
 DTS_NAME="sun60i-a733-cubie-a7z"
 
 # Skip rebuild if kernel Image already exists (use make clean to force)
