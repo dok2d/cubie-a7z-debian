@@ -21,6 +21,8 @@ apt install -y --no-install-recommends \
   fonts-dejavu-core \
   pulseaudio
 
+bash "$(dirname "$0")/setup-gpu.sh"
+
 LABWC_USER="${1:-cubie}"
 LABWC_HOME=$(eval echo "~$LABWC_USER")
 

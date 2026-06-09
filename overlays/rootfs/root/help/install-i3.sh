@@ -21,6 +21,8 @@ apt install -y --no-install-recommends \
   fonts-dejavu-core \
   pulseaudio
 
+bash "$(dirname "$0")/setup-gpu.sh"
+
 # GPU benchmark (optional)
 apt install -y --no-install-recommends glmark2-es2 2>/dev/null || true
 
