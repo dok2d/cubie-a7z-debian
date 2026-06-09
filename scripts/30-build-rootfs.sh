@@ -333,6 +333,17 @@ cp -a "$OVERLAY/etc/X11/xorg.conf.d/"*     "$ROOTFS_DIR/etc/X11/xorg.conf.d/"
 
 # GPU acceleration: PVR Mesa in /usr/local/lib/ needs LD_LIBRARY_PATH and glamor
 echo 'LD_LIBRARY_PATH=/usr/local/lib' > "$ROOTFS_DIR/etc/environment"
+# Vulkan ICD for PowerVR (libVK_IMG.so)
+mkdir -p "$ROOTFS_DIR/etc/vulkan/icd.d"
+cat > "$ROOTFS_DIR/etc/vulkan/icd.d/pvr_icd.json" << 'VKEOF'
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "/usr/lib/libVK_IMG.so",
+        "api_version": "1.3.0"
+    }
+}
+VKEOF
 cat > "$ROOTFS_DIR/etc/X11/xorg.conf.d/20-modesetting.conf" << 'XORGEOF'
 Section "Device"
     Identifier  "Allwinner Graphics"
