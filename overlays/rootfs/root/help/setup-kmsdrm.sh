@@ -43,7 +43,8 @@ cat > /usr/local/bin/kmsdrm-run << 'LAUNCHER'
 # Usage: kmsdrm-run <command> [args...]
 #
 # Requires: user in video+render+input groups, no other DRM master
-# SDL2 KMSDRM workaround: preload libudev (dlsym _udev_* bug in SDL2 2.32)
+# libudev workaround: upstream SDL bug #2397/#4879 — SDL tries to resolve
+# udev symbols before dlopen(libudev.so.1). Affects SDL2 and SDL3.
 export LD_PRELOAD=/lib/aarch64-linux-gnu/libudev.so.1
 export SDL_VIDEODRIVER=kmsdrm
 export SDL_KMSDRM_DEVICE_INDEX=0
