@@ -68,7 +68,7 @@ SRCEOF
 do_chroot /usr/bin/apt-get update 2>&1 | cat
 
 # Download all needed debs
-PACKAGES="systemd,systemd-sysv,udev,dbus,dbus-daemon,dbus-system-bus-common,kmod,initramfs-tools,u-boot-tools"
+PACKAGES="systemd,systemd-sysv,udev,dbus,dbus-daemon,dbus-system-bus-common,kmod,initramfs-tools,linux-base,u-boot-tools"
 PACKAGES+=",e2fsprogs,fdisk,dosfstools,ifupdown,iproute2,netbase,isc-dhcp-client"
 PACKAGES+=",util-linux,util-linux-extra"
 PACKAGES+=",procps,less,vim-tiny,openssh-server,openssh-client,firmware-linux-free,ca-certificates"
@@ -477,7 +477,8 @@ DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
 # Boot script (U-Boot + extlinux)
 log "Setting up boot scripts"
 cat > "$ROOTFS_DIR/boot/boot.cmd" << 'EOF'
-setenv bootargs console=ttyS0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait rw cma=64M panic=10 net.ifnames=0load mmc 0:1 $kernel_addr_r /vmlinuz-6.6.98+
+setenv bootargs console=ttyS0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait rw cma=64M panic=10 net.ifnames=0
+load mmc 0:1 $kernel_addr_r /vmlinuz-6.6.98+
 load mmc 0:1 $fdt_addr_r /sun60i-a733-cubie-a7z.dtb
 booti $kernel_addr_r - $fdt_addr_r
 EOF
@@ -489,7 +490,8 @@ cat > "$ROOTFS_DIR/boot/extlinux/extlinux.conf" << 'EOF'
 LABEL cubie-a7z
     KERNEL /vmlinuz-6.6.98+
     FDT /sun60i-a733-cubie-a7z.dtb
-    APPEND console=ttyS0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait rw cma=64M panic=10 net.ifnames=0EOF
+    APPEND console=ttyS0,115200 console=tty1 root=/dev/mmcblk0p2 rootwait rw cma=64M panic=10 net.ifnames=0
+EOF
 
 # First-boot: expand root partition to fill SD card
 mkdir -p "$ROOTFS_DIR/usr/local/sbin"
