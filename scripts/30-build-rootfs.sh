@@ -88,6 +88,8 @@ PACKAGES+=",libkmod2,libbpf1"
 PACKAGES+=",nano,usbutils,pciutils,i2c-tools,gpiod,rfkill,ethtool,htop,strace,file"
 # Shared libs for diagnostic tools (dpkg-deb -x doesn't resolve deps)
 PACKAGES+=",libncursesw6,libpci3,libusb-1.0-0,libmnl0,libi2c0"
+# HDMI hotplug fix needs modetest from libdrm-tests
+PACKAGES+=",libdrm-tests"
 PACKAGES+=",libelf1t64,libmagic-mgc,libmagic1t64"
 # e2fsprogs/fdisk runtime deps (first-boot-resize)
 PACKAGES+=",libcom-err2,libext2fs2t64,libfdisk1,libsmartcols1,libreadline8t64"
@@ -472,6 +474,77 @@ WantedBy=multi-user.target
 WIFISVC
 ln -sf /etc/systemd/system/wifi-power.service \
   "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/wifi-power.service"
+
+# HDMI hotplug daemon: sunxi-hdmi does not send uevents or update DRM connector
+# sysfs on cable replug. This daemon polls dmesg for HPD transitions and forces
+# a modeset via modetest + fbcon rebind after reconnect.
+cat > "$ROOTFS_DIR/usr/local/bin/hdmi-hotplug-daemon" << 'HDMIDAEMON'
+#!/bin/bash
+HPD=/sys/devices/virtual/hdmi/hdmi/attr/hpd_mask
+LAST_STATE="unknown"
+
+do_modeset() {
+  logger -t hdmi-daemon "forcing modeset"
+  pkill -x modetest 2>/dev/null
+  sleep 1
+  echo 0x1000 > "$HPD"
+  CONN=$(modetest -M sunxi-drm -c 2>/dev/null | awk '/HDMI/{print $1}')
+  CRTC=$(modetest -M sunxi-drm -p 2>/dev/null | awk '/^[0-9]/{print $1; exit}')
+  MODE=$(modetest -M sunxi-drm -c 2>/dev/null | awk '/preferred/{print $2; exit}')
+  : "${MODE:=1920x1080}"
+  if [ -n "$CONN" ] && [ -n "$CRTC" ]; then
+    modetest -M sunxi-drm -s "${CONN}@${CRTC}:${MODE}" &
+    disown $! 2>/dev/null
+    sleep 5
+  fi
+  sleep 1
+  pkill -x modetest 2>/dev/null
+  sleep 1
+  echo 0 > /sys/class/vtconsole/vtcon1/bind 2>/dev/null
+  sleep 1
+  echo 1 > /sys/class/vtconsole/vtcon1/bind 2>/dev/null
+  chvt 1 2>/dev/null
+  echo 0x0 > "$HPD"
+  logger -t hdmi-daemon "modeset + fbcon rebind done"
+}
+
+logger -t hdmi-daemon "starting"
+while true; do
+  LAST_HPD=$(dmesg | grep "sunxi-hdmi: hdmi drv detect hpd" | tail -1)
+  if echo "$LAST_HPD" | grep -q "disconnect"; then
+    CURRENT="disconnected"
+  elif echo "$LAST_HPD" | grep -q "connect"; then
+    CURRENT="connected"
+  else
+    CURRENT="unknown"
+  fi
+  if [ "$LAST_STATE" = "disconnected" ] && [ "$CURRENT" = "connected" ]; then
+    logger -t hdmi-daemon "HPD reconnect detected"
+    sleep 2
+    do_modeset
+  fi
+  LAST_STATE="$CURRENT"
+  sleep 3
+done
+HDMIDAEMON
+chmod +x "$ROOTFS_DIR/usr/local/bin/hdmi-hotplug-daemon"
+
+cat > "$ROOTFS_DIR/etc/systemd/system/hdmi-hotplug.service" << 'HDMISVC'
+[Unit]
+Description=HDMI hotplug daemon for sunxi-drm
+After=systemd-udevd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hdmi-hotplug-daemon
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+HDMISVC
+ln -sf /etc/systemd/system/hdmi-hotplug.service \
+  "$ROOTFS_DIR/etc/systemd/system/multi-user.target.wants/hdmi-hotplug.service"
 
 # Build initramfs
 log "Building initramfs"
