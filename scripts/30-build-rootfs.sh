@@ -269,6 +269,11 @@ echo "root:${ROOT_PASSWORD:-cubie}" | do_chroot /usr/sbin/chpasswd 2>&1 || true
 do_chroot /usr/sbin/useradd -m -s /bin/bash -G sudo,adm,netdev,audio,video,render,input "${DEFAULT_USER:-cubie}" 2>/dev/null || true
 echo "${DEFAULT_USER:-cubie}:${DEFAULT_PASSWORD:-cubie}" | do_chroot /usr/sbin/chpasswd 2>&1 || true
 
+# XDG dirs for all users (apps like Yamagi Quake II need ~/.local/share)
+mkdir -p "$ROOTFS_DIR/etc/skel/.local/share"
+mkdir -p "$ROOTFS_DIR/home/${DEFAULT_USER:-cubie}/.local/share"
+chown -R 1000:1000 "$ROOTFS_DIR/home/${DEFAULT_USER:-cubie}/.local" 2>/dev/null || true
+
 # C.utf8 is always available, no locale-gen needed
 # systemd replaces /etc/default/locale with symlink to /etc/locale.conf
 echo "LANG=C.utf8" > "$ROOTFS_DIR/etc/locale.conf"

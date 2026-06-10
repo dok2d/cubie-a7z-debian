@@ -65,6 +65,23 @@ exec "$@"
 LAUNCHER
 chmod +x /usr/local/bin/kmsdrm-run
 
+# Thermal stats script — lightweight, writes to tty2
+cat > /usr/local/bin/kmsdrm-stats << 'STATSEOF'
+#!/bin/bash
+# Lightweight thermal stats for KMSDRM sessions.
+# Writes one line to tty2 every 2 seconds. ~0% CPU overhead.
+# View: Ctrl+Alt+F2 | Back to game: Ctrl+Alt+F1
+TTY=/dev/tty2
+while true; do
+  CPU=$(awk '{printf "%.0f", $1/1000}' /sys/class/thermal/thermal_zone3/temp 2>/dev/null)
+  GPU=$(awk '{printf "%.0f", $1/1000}' /sys/class/thermal/thermal_zone4/temp 2>/dev/null)
+  DDR=$(awk '{printf "%.0f", $1/1000}' /sys/class/thermal/thermal_zone1/temp 2>/dev/null)
+  printf "\r CPU:%s°C  GPU:%s°C  DDR:%s°C  " "$CPU" "$GPU" "$DDR" > "$TTY"
+  sleep 2
+done
+STATSEOF
+chmod +x /usr/local/bin/kmsdrm-stats
+
 echo ""
 echo "=== KMSDRM environment ready ==="
 echo ""

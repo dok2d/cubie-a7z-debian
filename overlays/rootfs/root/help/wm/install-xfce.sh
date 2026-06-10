@@ -21,7 +21,7 @@ apt install -y --no-install-recommends \
   network-manager-gnome \
   pulseaudio pavucontrol
 
-bash "$(dirname "$0")/setup-gpu.sh"
+bash "$(dirname "$0")/../setup-gpu.sh"
 
 # GPU benchmark (optional but useful for verifying acceleration)
 apt install -y --no-install-recommends glmark2-es2 2>/dev/null || true

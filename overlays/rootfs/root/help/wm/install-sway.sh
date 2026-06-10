@@ -23,7 +23,7 @@ apt install -y --no-install-recommends \
   pulseaudio
 
 # Configure GPU acceleration (LD_LIBRARY_PATH, Vulkan/OpenCL ICDs, Xorg glamor)
-bash "$(dirname "$0")/setup-gpu.sh"
+bash "$(dirname "$0")/../setup-gpu.sh"
 
 SWAY_USER="${1:-cubie}"
 SWAY_HOME=$(eval echo "~$SWAY_USER")
