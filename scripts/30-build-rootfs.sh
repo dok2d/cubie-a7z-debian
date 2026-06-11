@@ -520,7 +520,7 @@ while true; do
   fi
   if [ "$LAST_STATE" = "disconnected" ] && [ "$CURRENT" = "connected" ]; then
     logger -t hdmi-daemon "HPD reconnect detected"
-    sleep 2
+    sleep 4
     do_modeset
   fi
   LAST_STATE="$CURRENT"
