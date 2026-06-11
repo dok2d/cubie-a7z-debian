@@ -31,11 +31,92 @@
 - **Чип не впаян** на этом SKU платы. DTS node оставлен для совместимости.
 - Не влияет на работу — ошибки в dmesg при загрузке ожидаемы.
 
-### GLX показывает llvmpipe
-- Xorg glamor использует EGL+PVR аппаратно (подтверждено)
-- Но `glxinfo` показывает llvmpipe — Debian GLVND направляет GLX в системную Mesa
-- На реальный рендеринг не влияет — glamor работает через EGL
-- Приложения через EGL получают GPU ускорение; GLX-only приложения — software fallback
+### X11 WM и GPU ускорение: конфликт GLVND
+
+**Суть**: GPU аппаратное ускорение работает, но путь к нему различается
+между EGL и GLX. Рабочие столы X11 используют аппаратную glamor-композицию,
+но `glxinfo` показывает программный рендеринг (llvmpipe).
+
+**Архитектура — два DRI устройства**:
+
+| Card | Драйвер | KMS | Роль |
+|------|---------|-----|------|
+| card0 | sunxi-drm | Да | Контроллер дисплея (HDMI выход) |
+| card1 | pvrsrvkm | Нет | 3D GPU (PowerVR BXM-4-64), только рендеринг |
+
+Xorg использует card0 (modesetting) для дисплея. GPU ускорение идёт через
+card1 по пути EGL → PVR Mesa → pvrsrvkm → renderD128.
+
+**Как это работает**: Radxa поставляет non-GLVND сборку PVR Mesa в `/usr/local/lib/`
+(с алиасом `sunxi-drm_dri.so` → `pvr_dri.so`). Процесс Xorg загружает эти
+библиотеки через `LD_LIBRARY_PATH=/usr/local/lib`, обходя GLVND-диспетчер Debian.
+Glamor-ускорение работает через EGL напрямую.
+
+**Конфликт GLVND**:
+
+```
+EGL путь (работает):
+  Приложение → /usr/local/lib/libEGL.so.1 (PVR Mesa, non-GLVND)
+    → /usr/local/lib/dri/sunxi-drm_dri.so (PVR gallium)
+      → pvrsrvkm → GPU аппаратно ✓
+
+GLX путь (программный):
+  Приложение → /usr/lib/aarch64-linux-gnu/libGL.so.1 (Debian GLVND)
+    → libGLX_mesa.so.0 (системная Mesa)
+      → /usr/lib/aarch64-linux-gnu/dri/ (нет sunxi-drm_dri.so)
+        → llvmpipe (CPU программный рендеринг) ✗
+```
+
+**Что работает**:
+- `glamor X acceleration enabled on PowerVR B-Series BXM-4-64` — подтверждено в Xorg.log
+- X11 WM (XFCE, i3, LXQt) через lightdm/sddm — композиция аппаратно ускорена
+- EGL-приложения (GLES игры, glmark2-es2, Chromium с `--use-gl=egl`)
+- Vulkan приложения (через `/usr/lib/libVK_IMG.so`, ICD зарегистрирован)
+- OpenCL (`/usr/lib/libPVROCL.so`)
+- KMSDRM-игры (Quake II 60fps, Half-Life 60fps) — без X11
+
+**Что не работает**:
+- `glxinfo` показывает `llvmpipe (LLVM 19.1.7)` — это GLX путь через GLVND
+- Приложения использующие только GLX рендеринг (редко) — программный fallback
+- Firefox композиция — программный режим (190% CPU, 460 МБ RAM) без принуждения к EGL
+- `glmark2` (не es2 версия) использует GLX → software; использовать `glmark2-es2`
+
+**Wayland WM** (sway, labwc) обходят эту проблему — используют EGL нативно
+с `WLR_DRM_DEVICES=/dev/dri/card0`, PVR Mesa обрабатывает рендеринг через EGL.
+
+**Обход для GLX-приложений**:
+```bash
+# Принудить приложения использовать EGL вместо GLX (где поддерживается)
+export __GLX_VENDOR_LIBRARY_NAME=mesa
+export MESA_LOADER_DRIVER_OVERRIDE=pvr
+
+# Для Firefox
+MOZ_X11_EGL=1 firefox
+```
+
+**Возможные исправления** (полный анализ в GPU-TODO.md):
+1. **ld.so.conf.d приоритет** — добавить `/usr/local/lib` в глобальный путь линковщика
+   (PVR Mesa `libEGL.so.1` получит приоритет над GLVND)
+2. **Замена DRI драйверов** — скопировать `sunxi-drm_dri.so` в системный DRI путь
+   (риск: несовместимость ABI Mesa между PVR сборкой и Debian Mesa)
+3. **Собрать PVR Mesa как GLVND vendor** — пересобрать с `-Dglvnd=enabled`,
+   установить как `/etc/glvnd/egl_vendor.d/10_pvr.json` (идеально, но сложно)
+
+**Влияние на выбор WM**:
+
+| WM | Протокол | Ускорение | Примечание |
+|----|----------|-----------|------------|
+| XFCE4 | X11 | glamor (EGL) | Рекомендуется. ~300 МБ. GPU композиция работает. |
+| i3 | X11 | glamor (EGL) | Тайловый, лёгкий. ~200 МБ. Тот же GPU путь. |
+| LXQt | X11 | glamor (EGL) | Qt. ~350 МБ. Тот же GPU путь. |
+| sway | Wayland | EGL нативный | Нет проблемы GLVND. 200 МБ. `WLR_DRM_DEVICES=/dev/dri/card0`. |
+| labwc | Wayland | EGL нативный | Нет проблемы GLVND. 150 МБ. Самый лёгкий с GPU. |
+| KMSDRM | Нет | EGL нативный | Нет оверхеда WM. Лучший для игр. Нет рабочего стола. |
+
+**Рекомендация**: Для рабочего стола — XFCE4 или i3 проверены и стабильны. Glamor
+композиция аппаратно ускорена. Проблема GLX/llvmpipe косметическая для
+большинства задач (композиция, веб, терминал). Для бенчмарков GPU или игр
+используйте `glmark2-es2` (EGL) или KMSDRM режим.
 
 ### ET7304Y TCPC: probe failed -22
 - Чип найден на I2C bus 14 addr 0x4E
