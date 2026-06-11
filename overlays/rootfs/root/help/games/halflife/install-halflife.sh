@@ -2,28 +2,29 @@
 # Install Half-Life via Xash3D FWGS engine.
 # Run as root. Requires internet.
 #
-# Rendering: native GLES2 on PowerVR GPU (no gl4es needed).
-# KMSDRM: direct framebuffer, no WM needed.
+# Rendering: native GLES3 (gles3compat) on PowerVR GPU — no gl4es needed.
+# KMSDRM: direct framebuffer via kmsdrm-run, no WM needed.
 # X11: works under any desktop.
-# RAM: ~100–200 MB.
+# RAM: ~200 MB.
 #
 # Game data: copy valve/ directory from Steam Half-Life to /opt/halflife/valve/
+# Steam HL uses .wad + .bsp files (no .pak needed).
 
 set -e
 HELPDIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
 INSTALLDIR=/opt/halflife
 
-if [ -f "$INSTALLDIR/xash3d" ] && [ -f "$INSTALLDIR/valve/pak0.pak" ]; then
+if [ -f "$INSTALLDIR/xash3d" ] && [ -d "$INSTALLDIR/valve/maps" ]; then
   echo "Half-Life already installed."
-  echo "KMSDRM: halflife-kmsdrm"
-  echo "X11:    halflife-x11"
+  echo "KMSDRM:  bash $(dirname "$0")/run-kmsdrm.sh"
+  echo "X11:     bash $(dirname "$0")/run-x11.sh"
   exit 0
 fi
 
 echo "=== Installing Half-Life (Xash3D FWGS) ==="
-echo "Builds Xash3D engine + HL SDK from source."
-echo "Native GLES2 renderer — designed for ARM + embedded Linux."
+echo "Builds Xash3D engine + HL SDK from source (~5 min on A733)."
+echo "Renderer: gles3compat (native OpenGL ES on PowerVR GPU)."
 echo "Press Ctrl+C to cancel, Enter to continue..."
 read -r
 
@@ -32,7 +33,7 @@ bash "$HELPDIR/setup-gpu.sh"
 # Build dependencies
 apt update
 apt install -y --no-install-recommends \
-  git build-essential python3 cmake \
+  git build-essential python3 \
   libsdl2-dev libfreetype6-dev libfontconfig1-dev \
   libopus-dev libbz2-dev libvorbis-dev libopusfile-dev libogg-dev
 
@@ -46,8 +47,14 @@ git clone --depth 1 --recursive https://github.com/FWGS/xash3d-fwgs.git "$BUILDD
 cd "$BUILDDIR/engine"
 echo "Configuring..."
 ./waf configure --enable-all-renderers --enable-stbtt -T release 2>&1 | tail -5
-echo "Building engine..."
-./waf build -j$(nproc) 2>&1 | tail -5
+echo "Building engine (bundled gl4es may fail — that's OK)..."
+./waf build -j$(nproc) 2>&1 | tail -5 || true
+
+# Verify at least the core engine built
+if [ ! -f build/engine/libxash.so ]; then
+  echo "ERROR: Engine build failed."
+  exit 1
+fi
 
 # Build Half-Life SDK (ARM64 game libraries)
 echo "Cloning HL SDK..."
@@ -61,36 +68,23 @@ echo "Building HL SDK..."
 echo "Installing..."
 mkdir -p "$INSTALLDIR/valve/dlls" "$INSTALLDIR/valve/cl_dlls"
 
-# Engine files
-cp "$BUILDDIR/engine/build/game_launch/xash3d" "$INSTALLDIR/"
-cp "$BUILDDIR/engine/build/engine/libxash.so" "$INSTALLDIR/"
-cp "$BUILDDIR/engine/build/filesystem/filesystem_stdio.so" "$INSTALLDIR/"
-cp "$BUILDDIR/engine/build/3rdparty/mainui/libmenu.so" "$INSTALLDIR/" 2>/dev/null || true
-cp "$BUILDDIR/engine/build/ref/gl/libref_gl.so" "$INSTALLDIR/" 2>/dev/null || true
-cp "$BUILDDIR/engine/build/ref/gles/libref_gles.so" "$INSTALLDIR/" 2>/dev/null || true
-cp "$BUILDDIR/engine/build/ref/soft/libref_soft.so" "$INSTALLDIR/" 2>/dev/null || true
-# Copy all .so from build in case paths differ between versions
+# Copy all built .so and binaries
+find "$BUILDDIR/engine/build" -name "xash3d" -type f -exec cp {} "$INSTALLDIR/" \;
 find "$BUILDDIR/engine/build" -name "*.so" -exec cp {} "$INSTALLDIR/" \; 2>/dev/null
 
-# HL SDK game libraries (ARM64 naming convention)
-find "$BUILDDIR/hlsdk/build" -name "client.so" -exec cp {} "$INSTALLDIR/valve/cl_dlls/" \; 2>/dev/null
-find "$BUILDDIR/hlsdk/build" -name "hl.so" -exec cp {} "$INSTALLDIR/valve/dlls/" \; 2>/dev/null
+# HL SDK game libraries
+find "$BUILDDIR/hlsdk/build" -name "client*.so" -exec cp {} "$INSTALLDIR/valve/cl_dlls/" \;
+find "$BUILDDIR/hlsdk/build" -name "hl*.so" -exec cp {} "$INSTALLDIR/valve/dlls/" \;
 
-chmod +x "$INSTALLDIR/xash3d"
+chmod +x "$INSTALLDIR/xash3d" 2>/dev/null
 chown -R 1000:1000 "$INSTALLDIR" 2>/dev/null || true
 
 rm -rf "$BUILDDIR"
 
-# KMSDRM launcher (native GLES2 — best path for PowerVR)
+# KMSDRM launcher — uses kmsdrm-run wrapper (handles DRM master + fbcon recovery)
 cat > /usr/local/bin/halflife-kmsdrm << 'LAUNCHER'
 #!/bin/bash
-export LD_PRELOAD=/lib/aarch64-linux-gnu/libudev.so.1
-export SDL_VIDEODRIVER=kmsdrm
-export SDL_KMSDRM_DEVICE_INDEX=0
 export LD_LIBRARY_PATH=/usr/local/lib:/opt/halflife
-for dm in lightdm sddm; do systemctl stop "$dm" 2>/dev/null; done
-pkill -x Xorg 2>/dev/null; pkill -x sway 2>/dev/null
-sleep 1
 cd /opt/halflife
 exec ./xash3d -ref gles3compat -fullscreen "$@"
 LAUNCHER
@@ -105,12 +99,12 @@ exec ./xash3d -ref gles3compat -fullscreen "$@"
 LAUNCHER
 chmod +x /usr/local/bin/halflife-x11
 
-# Desktop entry
+# Desktop entry (visible in XFCE, LXQt, i3+dmenu, sway+wmenu)
 mkdir -p /usr/share/applications
 cat > /usr/share/applications/halflife.desktop << 'DESKTOP'
 [Desktop Entry]
 Name=Half-Life
-Comment=Half-Life via Xash3D FWGS (GLES2 on PowerVR)
+Comment=Half-Life via Xash3D FWGS (GLES3 on PowerVR)
 Exec=halflife-x11
 Terminal=false
 Type=Application
@@ -121,15 +115,17 @@ DESKTOP
 echo ""
 echo "=== Half-Life engine installed ==="
 echo ""
-echo "KMSDRM (no WM):  halflife-kmsdrm"
+echo "KMSDRM (no WM):  kmsdrm-run halflife-kmsdrm"
 echo "X11 (desktop):    halflife-x11"
 echo ""
-if [ -f "$INSTALLDIR/valve/pak0.pak" ]; then
+if [ -d "$INSTALLDIR/valve/maps" ] || [ -f "$INSTALLDIR/valve/pak0.pak" ]; then
   echo "Game data found."
 else
-  echo "Game data MISSING. Copy valve/ from Steam Half-Life to $INSTALLDIR/valve/"
-  echo "Required files: valve/pak0.pak, valve/pak1.pak"
+  echo "Game data MISSING."
   echo ""
-  echo "On PC: Steam → Half-Life → Properties → Local Files → Browse"
-  echo "Copy the entire valve/ directory to $INSTALLDIR/valve/"
+  echo "Copy valve/ from Steam Half-Life installation:"
+  echo "  scp -r /path/to/Steam/steamapps/common/Half-Life/valve root@<board-ip>:$INSTALLDIR/valve/"
+  echo ""
+  echo "Then fix permissions:"
+  echo "  chown -R 1000:1000 $INSTALLDIR/valve/"
 fi
