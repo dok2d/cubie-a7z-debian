@@ -24,14 +24,10 @@ Directory layout:
     install-sway.sh       Sway tiling WM (Wayland)
     install-labwc.sh      labwc compositor (Wayland)
 
-  games/q2/             Quake II
-    install-quake2.sh     Interactive mode selector:
-                            1) KMSDRM + SDL2 + GLES3  (no WM, max perf)
-                            2) KMSDRM + SDL3 + GLES3  (no WM, SDL3)
-                            3) Vulkan + X11            (requires desktop)
-    install-kmsdrm.sh     Direct install: SDL2 KMSDRM
-    install-kmsdrm-sdl3.sh  Direct install: SDL3 KMSDRM
-    install-vulkan.sh     Direct install: vkQuake2 X11
+  games/q2/             Quake II — interactive (KMSDRM GLES3 / Vulkan X11)
+  games/q3/             Quake III + OpenArena — gl4es (KMSDRM / X11)
+  games/halflife/       Half-Life — Xash3D, native GLES2 (KMSDRM / X11)
+  games/serioussam/     Serious Sam TFE — Vulkan (X11 only)
 
 After desktop install, reboot — starts automatically on HDMI:
   X11 (xfce/i3/lxqt):    via lightdm/sddm display manager

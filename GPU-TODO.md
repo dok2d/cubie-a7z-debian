@@ -44,6 +44,251 @@ bypassing GLVND, but when Debian's GLVND intercepts, glamor crashes.
 4. Try removing `/usr/lib/aarch64-linux-gnu/libEGL*` so only PVR Mesa remains
 5. Check if Radxa runs Xorg via wrapper that sets `LD_PRELOAD` or `LD_LIBRARY_PATH`
 
+## GLVND Research Results (2026-06-10)
+
+### How Radxa Actually Solves It
+
+Inspected `radxa/allwinner-target` branch `target-a733-v1.4.6`. The approach is:
+
+1. **Non-GLVND Mesa build** -- Radxa's PVR Mesa in `/usr/local/lib/` is built
+   **without** `-Dglvnd=enabled`. The libraries have classic SONAMEs:
+   - `libEGL.so.1` (NOT `libEGL_mesa.so.0`)
+   - `libGLESv2.so.2` (NOT `libGLESv2_mesa.so.2`)
+   - `libgbm.so.1`, `libglapi.so.0`
+
+2. **DRI megadriver with sunxi-drm alias** -- All three DRI drivers are
+   identical files (same md5):
+   - `pvr_dri.so` = `sunxi-drm_dri.so` = `swrast_dri.so` (15MB each)
+   - Built with `-Dgallium-pvr-alias=sunxi-drm` (TI equivalent: `tidss`)
+   - When Mesa DRI loader queries card0 (`sunxi-drm`), it finds `sunxi-drm_dri.so`
+     which IS the PVR gallium driver
+
+3. **Custom Xorg + glamor** -- Radxa ships a custom-built Xorg binary (2.4MB)
+   and `libglamoregl.so` + `modesetting_drv.so` in `/usr/lib/xorg/modules/`.
+   The Xorg binary has NO hardcoded RPATH to `/usr/local/lib`.
+
+4. **LD_LIBRARY_PATH in lightdm.service** -- The critical piece:
+   ```ini
+   [Service]
+   #IMG GPU LIB PATH
+   Environment="LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH"
+   ```
+   This makes lightdm (and its child Xorg) resolve `libEGL.so.1` from
+   `/usr/local/lib/` BEFORE the system path, bypassing Debian's GLVND stack.
+
+5. **DRI search path** -- With `LD_LIBRARY_PATH=/usr/local/lib`, Mesa's DRI
+   loader finds drivers in `/usr/local/lib/dri/` (relative to the libEGL.so
+   location), where `sunxi-drm_dri.so` lives.
+
+6. **Xorg config** -- `AccelMethod "none"`, `DRI "2"` (NOT glamor, NOT DRI3).
+   GPU acceleration comes from Mesa DRI, not Xorg glamor compositing.
+
+### Why Our Current Setup Fails
+
+The problem is that Debian Trixie's GLVND intercepts library loading:
+
+```
+App calls eglGetDisplay()
+  -> resolves to /usr/lib/aarch64-linux-gnu/libEGL.so.1 (GLVND dispatcher)
+     -> reads /usr/share/glvnd/egl_vendor.d/50_mesa.json
+        -> loads libEGL_mesa.so.0 (Debian system Mesa)
+           -> DRI loader searches /usr/lib/aarch64-linux-gnu/dri/
+              -> no sunxi-drm_dri.so found -> falls back to llvmpipe
+```
+
+Even with `LD_LIBRARY_PATH=/usr/local/lib`, GLVND's `libEGL.so.1` (from
+`/usr/lib/aarch64-linux-gnu/`) has the same SONAME as PVR Mesa's `libEGL.so.1`.
+The dynamic linker loads whichever it finds first based on the search order.
+But Xorg is typically started by lightdm which inherits from systemd, where
+`/usr/lib/aarch64-linux-gnu/` is baked into the linker cache.
+
+### GLVND Architecture (Reference)
+
+GLVND vendor dispatch works via JSON manifests:
+
+- **Default search paths**: `/etc/glvnd/egl_vendor.d/` then `/usr/share/glvnd/egl_vendor.d/`
+- **Override**: `__EGL_VENDOR_LIBRARY_DIRS` (colon-separated dirs)
+- **Override**: `__EGL_VENDOR_LIBRARY_FILENAMES` (colon-separated JSON files)
+- **Priority**: lower-numbered files = higher priority (`10_nvidia.json` > `50_mesa.json`)
+- **Ignored for setuid**: all env vars ignored for setuid binaries (Xorg!)
+
+JSON format:
+```json
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "libEGL_mesa.so.0"
+    }
+}
+```
+
+**GLX dispatch** (separate from EGL): `libGLX.so.0` dispatches to `libGLX_mesa.so.0`.
+There is NO `__GLX_VENDOR_LIBRARY_*` equivalent -- GLX vendor is selected per-screen
+by the X server's GLX extension.
+
+### Solution Options (Ranked by Practicality)
+
+#### Option A: ld.so.conf.d Priority Override (RECOMMENDED, simplest)
+
+Make `/usr/local/lib` take priority over system paths globally:
+
+```bash
+echo "/usr/local/lib" > /etc/ld.so.conf.d/00-pvr-mesa.conf
+ldconfig
+```
+
+**How it works**: The dynamic linker resolves `libEGL.so.1` to
+`/usr/local/lib/libEGL.so.1` (PVR Mesa) instead of
+`/usr/lib/aarch64-linux-gnu/libEGL.so.1` (GLVND dispatcher).
+Since PVR Mesa is non-GLVND, it handles EGL directly and loads
+`sunxi-drm_dri.so` from `/usr/local/lib/dri/`.
+
+**Also needed**: lightdm.service `Environment` line (already present from Radxa overlay).
+
+**Risks**:
+- Replaces GLVND dispatch globally -- no multi-vendor GPU support
+- `apt upgrade` of `libegl1` may overwrite the symlink (ldconfig re-runs)
+- Any package depending on `libEGL_mesa.so.0` won't find it via /usr/local/lib
+- Need to also put `/usr/local/lib` in lightdm.service Environment (systemd
+  services don't use ld.so.conf for their own PATH, but child processes do)
+
+**Mitigation**: Pin/hold mesa packages: `apt-mark hold libegl1 libgles2 libgl1-mesa-dri`
+
+#### Option B: Replace Debian Mesa DRI Drivers (Surgical)
+
+Keep GLVND, but replace the DRI drivers that GLVND's Mesa backend loads:
+
+```bash
+# Copy PVR megadriver into system DRI path
+cp /usr/local/lib/dri/pvr_dri.so /usr/lib/aarch64-linux-gnu/dri/
+cp /usr/local/lib/dri/sunxi-drm_dri.so /usr/lib/aarch64-linux-gnu/dri/
+cp /usr/local/lib/dri/swrast_dri.so /usr/lib/aarch64-linux-gnu/dri/
+
+# Also need PVR support libs in system path
+cp /usr/lib/libpvr_dri_support.so* /usr/lib/aarch64-linux-gnu/
+cp /usr/lib/libsrv_um.so* /usr/lib/aarch64-linux-gnu/
+cp /usr/lib/libpvr_mesa_wsi.so /usr/lib/aarch64-linux-gnu/
+# ... and other PVR vendor libs that pvr_dri.so depends on
+```
+
+**How it works**: GLVND -> `libEGL_mesa.so.0` -> DRI loader -> finds
+`sunxi-drm_dri.so` in standard path -> PVR gallium renders on GPU.
+
+**Risks**:
+- `apt upgrade` of `libgl1-mesa-dri` will overwrite `sunxi-drm_dri.so` etc.
+- Version mismatch: PVR Mesa DRI driver may not be ABI-compatible with
+  Debian's `libEGL_mesa.so.0` (different Mesa builds)
+- **LIKELY TO FAIL**: PVR DRI drivers are linked against PVR Mesa's `libglapi.so`,
+  not Debian Mesa's. The internal Mesa ABI must match exactly.
+
+**Mitigation**: Use `dpkg-divert` to protect files:
+```bash
+dpkg-divert --local --rename --add /usr/lib/aarch64-linux-gnu/dri/sunxi-drm_dri.so
+```
+
+#### Option C: Build PVR Mesa as GLVND Vendor (Ideal but Complex)
+
+Rebuild PVR Mesa with `-Dglvnd=enabled` so it produces:
+- `libEGL_pvr.so.0` (GLVND EGL vendor library)
+- `libGLX_pvr.so.0` (GLVND GLX vendor library)
+
+Install vendor JSON: `/etc/glvnd/egl_vendor.d/10_pvr.json`:
+```json
+{
+    "file_format_version": "1.0.0",
+    "ICD": {
+        "library_path": "/usr/local/lib/libEGL_pvr.so.0"
+    }
+}
+```
+
+**How it works**: GLVND dispatcher loads PVR vendor first (priority 10 < 50),
+PVR Mesa handles EGL for the PowerVR device, system Mesa handles llvmpipe
+fallback.
+
+**Risks**:
+- Requires cross-compiling Mesa from Allwinner BSP source with modifications
+- GLX vendor selection is per-X-screen, not per-device -- may not work for
+  the card0 (sunxi-drm) + card1 (pvr) split
+- No known working example of this for PowerVR
+
+#### Option D: Remove Debian GLVND, Go Full PVR Mesa (Nuclear)
+
+```bash
+apt remove --purge libegl1 libgles2 libglx0 libgl1 libglvnd0
+# Now only /usr/local/lib has EGL/GLES/GL
+ldconfig
+```
+
+**How it works**: With GLVND gone, `libEGL.so.1` resolves only to PVR Mesa.
+
+**Risks**:
+- Breaks many Debian packages that depend on libegl1, libgles2, etc.
+- `apt` will want to remove desktop packages (xfce4, firefox, etc.)
+- Very hard to recover from
+
+**Not recommended.**
+
+#### Option E: Xorg Wrapper Script
+
+Instead of modifying system libraries, wrap the Xorg binary:
+
+```bash
+mv /usr/bin/Xorg /usr/bin/Xorg.real
+cat > /usr/bin/Xorg << 'EOF'
+#!/bin/sh
+export LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+exec /usr/bin/Xorg.real "$@"
+EOF
+chmod +x /usr/bin/Xorg
+```
+
+**Problem**: Xorg is typically setuid root. `LD_LIBRARY_PATH` is **ignored**
+for setuid binaries by the dynamic linker (security measure). Radxa's Xorg
+is NOT setuid (runs as root via lightdm), so this works for them but may
+not work on all Debian setups.
+
+### Recommended Implementation Plan
+
+**Phase 1 -- Match Radxa's Approach (Quick Fix)**:
+
+1. Add `LD_LIBRARY_PATH=/usr/local/lib` to lightdm.service
+   (already done via Radxa overlay)
+2. Create `/etc/ld.so.conf.d/00-pvr-mesa.conf` with `/usr/local/lib`
+3. Run `ldconfig`
+4. Ensure Xorg is NOT setuid: `chmod 0755 /usr/bin/Xorg`
+   (lightdm runs Xorg as root anyway)
+5. Verify with `DISPLAY=:0 glxinfo | grep renderer`
+
+**Phase 2 -- Proper Integration (Build from Source)**:
+
+1. Cross-compile Mesa with PVR gallium + sunxi-drm alias:
+   ```
+   meson setup build-pvr \
+     -Dgallium-drivers=pvr,swrast \
+     -Dgallium-pvr-alias=sunxi-drm \
+     -Dvulkan-drivers=imagination-experimental \
+     -Dglvnd=disabled \
+     -Degl=enabled -Dgles1=enabled -Dgles2=enabled \
+     -Dplatforms=x11 -Dglx=dri -Ddri3=enabled \
+     -Dprefix=/usr --libdir=/usr/lib/aarch64-linux-gnu
+   ```
+2. Install to system paths, replacing Debian Mesa
+3. Use `dpkg-divert` + `apt-mark hold` to prevent overwrites
+
+**Phase 3 -- GLVND-Clean (Future)**:
+
+1. Build PVR Mesa with `-Dglvnd=enabled`
+2. Install as GLVND vendor alongside system Mesa
+3. Create proper EGL vendor JSON
+
+### Key Reference: TI AM62/AM67 Build Guide
+
+TI's Processor SDK for AM67 (same BXM-4-64 GPU) uses:
+- `-Dgallium-drivers=pvr` with `-Dgallium-pvr-alias=tidss`
+- The alias creates `tidss_dri.so` -> `pvr_dri.so` megadriver
+- For Allwinner: use `-Dgallium-pvr-alias=sunxi-drm` instead
+
 ## Current State
 
 Board has **two DRI devices**:
