@@ -77,6 +77,7 @@ find "$BUILDDIR/hlsdk/build" -name "client.so" -exec cp {} "$INSTALLDIR/valve/cl
 find "$BUILDDIR/hlsdk/build" -name "hl.so" -exec cp {} "$INSTALLDIR/valve/dlls/" \; 2>/dev/null
 
 chmod +x "$INSTALLDIR/xash3d"
+chown -R 1000:1000 "$INSTALLDIR" 2>/dev/null || true
 
 rm -rf "$BUILDDIR"
 
