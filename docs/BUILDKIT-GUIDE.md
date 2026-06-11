@@ -567,3 +567,724 @@ ls /dev/dri/renderD128   # Must exist (pvrsrvkm module loaded)
 ```
 
 See [GPU-TODO.md](../GPU-TODO.md) for technical details on the GLVND/Mesa stack.
+
+---
+
+## Practical Recipes (On the Board)
+
+These instructions are run **on the board itself** after booting, not during image build.
+
+### Recipe 1: Change Root or User Password
+
+```bash
+# Change root password
+passwd
+
+# Change cubie user password
+passwd cubie
+
+# To bake a different password into the image at build time,
+# edit config/debian.env:
+#   ROOT_PASSWORD="newpass"
+#   DEFAULT_PASSWORD="newpass"
+```
+
+### Recipe 2: Add a New User
+
+```bash
+# Create user with home directory, bash shell, and sudo access
+useradd -m -s /bin/bash -G sudo,audio,video,render,input newuser
+passwd newuser
+
+# Verify
+su - newuser
+whoami
+```
+
+### Recipe 3: Delete a User
+
+```bash
+# Remove user and their home directory
+userdel -r olduser
+```
+
+### Recipe 4: Install Packages from Debian Repos
+
+The board has full access to Debian Trixie repositories:
+
+```bash
+apt update
+apt install <package>
+
+# Examples:
+apt install python3 python3-pip   # Python
+apt install nginx                  # Web server
+apt install mc                     # Midnight Commander file manager
+apt install neofetch               # System info
+apt install iperf3                 # Network benchmarking
+apt install nmap                   # Network scanner
+apt install git                    # Version control
+```
+
+**Note**: On the 1 GB SKU, large packages may run out of RAM during install.
+zram swap (256 MB) helps, but heavy compiles (GCC, Rust) may still OOM.
+
+### Recipe 5: Configure WiFi — Full Walkthrough
+
+```bash
+# 1. Check that WiFi chip is powered on
+cat /sys/class/misc/sunxi-rfkill/wlan/state
+# Should be 1. If 0:
+echo 1 > /sys/class/misc/sunxi-rfkill/wlan/state
+
+# 2. Scan for networks
+iw dev wlan0 scan | grep SSID
+
+# 3. Configure wpa_supplicant
+nano /etc/wpa_supplicant/wpa_supplicant.conf
+```
+
+Add your network:
+```
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=US
+
+network={
+    ssid="MyNetwork"
+    psk="MyPassword"
+}
+```
+
+```bash
+# 4. Restart networking
+systemctl restart networking
+
+# 5. Verify
+ip addr show wlan0     # should have an IP
+ping 8.8.8.8           # should work
+```
+
+#### Connect to a Hidden Network
+
+```
+network={
+    ssid="HiddenNetwork"
+    scan_ssid=1
+    psk="password"
+}
+```
+
+#### Connect to an Enterprise Network (WPA2-EAP)
+
+```
+network={
+    ssid="CorpWiFi"
+    key_mgmt=WPA-EAP
+    eap=PEAP
+    identity="user@example.com"
+    password="secret"
+    phase2="auth=MSCHAPV2"
+}
+```
+
+#### Connect to an Open Network
+
+```
+network={
+    ssid="OpenCafe"
+    key_mgmt=NONE
+}
+```
+
+#### Multiple Networks with Priority
+
+```
+network={
+    ssid="HomeWiFi"
+    psk="home123"
+    priority=10
+}
+network={
+    ssid="WorkWiFi"
+    psk="work456"
+    priority=5
+}
+```
+
+The highest priority network that is visible will be used.
+
+### Recipe 6: Set a Static IP Address
+
+```bash
+nano /etc/network/interfaces.d/wlan0
+```
+
+Replace `dhcp` with static:
+```
+allow-hotplug wlan0
+iface wlan0 inet static
+    address 192.168.1.100
+    netmask 255.255.255.0
+    gateway 192.168.1.1
+    dns-nameservers 8.8.8.8 8.8.4.4
+    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+```
+
+```bash
+systemctl restart networking
+```
+
+### Recipe 7: Configure SSH
+
+#### Change SSH Port
+
+```bash
+nano /etc/ssh/sshd_config.d/cubie-a7z.conf
+```
+```
+Port 2222
+PermitRootLogin yes
+PasswordAuthentication yes
+```
+```bash
+systemctl restart ssh
+# Now connect: ssh -p 2222 cubie@<ip>
+```
+
+#### Set Up SSH Keys (Passwordless Login)
+
+On your **host** machine:
+```bash
+# Generate key pair (if you don't have one)
+ssh-keygen -t ed25519
+
+# Copy public key to the board
+ssh-copy-id cubie@<board-ip>
+
+# Now login without password
+ssh cubie@<board-ip>
+```
+
+#### Disable Password Login (Keys Only)
+
+After confirming key login works:
+```bash
+# On the board:
+nano /etc/ssh/sshd_config.d/cubie-a7z.conf
+```
+```
+PasswordAuthentication no
+PubkeyAuthentication yes
+```
+```bash
+systemctl restart ssh
+```
+
+#### Disable Root SSH Login
+
+```bash
+nano /etc/ssh/sshd_config.d/cubie-a7z.conf
+```
+```
+PermitRootLogin no
+```
+```bash
+systemctl restart ssh
+```
+
+### Recipe 8: Transfer Files To/From the Board
+
+```bash
+# Copy file to the board
+scp myfile.txt cubie@<ip>:/home/cubie/
+
+# Copy file from the board
+scp cubie@<ip>:/home/cubie/results.txt .
+
+# Copy an entire directory
+scp -r my-project/ cubie@<ip>:/home/cubie/
+
+# Interactive file transfer
+sftp cubie@<ip>
+
+# rsync (better for large/incremental transfers)
+rsync -avz my-project/ cubie@<ip>:/home/cubie/my-project/
+```
+
+### Recipe 9: Set Timezone and Locale
+
+```bash
+# List available timezones
+timedatectl list-timezones | grep Moscow
+
+# Set timezone
+timedatectl set-timezone Europe/Moscow
+
+# Verify
+date
+timedatectl status
+
+# Set locale (C.utf8 is the default, no locale-gen needed)
+# To add a specific locale:
+apt install locales
+dpkg-reconfigure locales
+```
+
+### Recipe 10: Set Hostname
+
+```bash
+hostnamectl set-hostname my-cubie
+# Also update /etc/hosts
+nano /etc/hosts
+# Change: 127.0.1.1  my-cubie
+```
+
+### Recipe 11: Mount a USB Drive
+
+```bash
+# 1. Connect USB drive to J4 (top USB-C port, with OTG adapter)
+
+# 2. Find the device
+lsblk
+# Typically: /dev/sda1
+
+# 3. Mount
+mkdir -p /mnt/usb
+mount /dev/sda1 /mnt/usb
+
+# 4. Use it
+ls /mnt/usb
+
+# 5. Unmount before removing
+umount /mnt/usb
+```
+
+#### Auto-mount USB on Boot
+
+```bash
+# Find UUID
+blkid /dev/sda1
+
+# Add to fstab
+echo 'UUID=xxxx-xxxx  /mnt/usb  vfat  defaults,nofail  0  2' >> /etc/fstab
+```
+
+### Recipe 12: Check System Health
+
+```bash
+# CPU temperature
+cat /sys/class/thermal/thermal_zone3/temp
+# Divide by 1000 for degrees C (e.g. 52000 = 52°C)
+
+# GPU temperature
+cat /sys/class/thermal/thermal_zone4/temp
+
+# DDR temperature
+cat /sys/class/thermal/thermal_zone1/temp
+
+# All temperatures at once
+paste <(cat /sys/class/thermal/thermal_zone*/type) \
+      <(cat /sys/class/thermal/thermal_zone*/temp) \
+  | awk '{printf "%-20s %d°C\n", $1, $2/1000}'
+
+# CPU frequency
+cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq
+
+# RAM usage
+free -h
+
+# Disk usage
+df -h
+
+# System uptime and load
+uptime
+
+# Systemd failed units
+systemctl --failed
+
+# dmesg errors
+dmesg | grep -i error | tail -20
+
+# Full hardware test suite
+bash /root/tests/test-all.sh
+```
+
+### Recipe 13: Manage systemd Services
+
+```bash
+# List all running services
+systemctl list-units --type=service
+
+# Check a specific service
+systemctl status ssh
+systemctl status networking
+
+# Start / stop / restart a service
+systemctl start nginx
+systemctl stop nginx
+systemctl restart nginx
+
+# Enable on boot / disable
+systemctl enable nginx
+systemctl disable nginx
+
+# View service logs
+journalctl -u ssh -f          # follow live
+journalctl -u ssh --since today
+journalctl -u networking -b   # since last boot
+```
+
+### Recipe 14: Create a Custom systemd Service
+
+Example: auto-start a Python script on boot.
+
+```bash
+cat > /etc/systemd/system/my-app.service << 'EOF'
+[Unit]
+Description=My Application
+After=network.target
+
+[Service]
+Type=simple
+User=cubie
+WorkingDirectory=/home/cubie
+ExecStart=/usr/bin/python3 /home/cubie/my-app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable my-app
+systemctl start my-app
+systemctl status my-app
+```
+
+### Recipe 15: Set Up a Cron Job
+
+```bash
+# Edit crontab for root
+crontab -e
+
+# Examples:
+# Run script every 5 minutes
+*/5 * * * * /home/cubie/my-script.sh
+
+# Run at 3 AM daily
+0 3 * * * apt update && apt upgrade -y
+
+# Run at reboot
+@reboot /home/cubie/startup.sh
+
+# Save and view
+crontab -l
+```
+
+### Recipe 16: Set Up Bluetooth
+
+```bash
+# Start bluetoothctl
+bluetoothctl
+
+# Inside bluetoothctl:
+power on
+agent on
+default-agent
+scan on
+# Wait for devices to appear...
+# pair XX:XX:XX:XX:XX:XX
+# connect XX:XX:XX:XX:XX:XX
+# trust XX:XX:XX:XX:XX:XX
+scan off
+exit
+```
+
+### Recipe 17: HDMI Audio Playback
+
+```bash
+# List sound cards
+aplay -l
+# Should show: sndhdmi
+
+# Play a WAV file
+aplay -D hw:sndhdmi test.wav
+
+# Play audio with speaker-test
+speaker-test -D hw:sndhdmi -c 2 -t wav
+
+# Adjust volume (if alsa-utils installed)
+amixer -c sndhdmi set PCM 80%
+
+# Record from HDMI (capture is not supported, HDMI is output only)
+```
+
+### Recipe 18: Run NPU Inference
+
+```bash
+# Create inference config
+cat > /tmp/resnet50.txt << 'EOF'
+[network]
+/usr/share/npu/models/resnet50.nb
+[input]
+/usr/share/npu/input_data/goldfish_224x224.dat
+EOF
+
+# Run inference
+vpm_run -s /tmp/resnet50.txt -l 1
+# Output: inference time ~7.5 ms
+
+# With random input (224x224x3 = 150528 bytes)
+dd if=/dev/urandom of=/tmp/random.dat bs=150528 count=1
+cat > /tmp/test.txt << 'EOF'
+[network]
+/usr/share/npu/models/resnet50.nb
+[input]
+/tmp/random.dat
+EOF
+vpm_run -s /tmp/test.txt -l 1
+```
+
+### Recipe 19: GPIO Access
+
+```bash
+# List GPIO chips
+gpiodetect
+
+# List all GPIO lines
+gpioinfo
+
+# Read a GPIO value (e.g. PB0 = GPIO 32 on gpiochip0)
+gpioget gpiochip0 32
+
+# Set a GPIO output high
+gpioset gpiochip0 32=1
+
+# Set output low
+gpioset gpiochip0 32=0
+
+# Monitor GPIO events (watch for edges)
+gpiomon gpiochip0 32
+```
+
+GPIO number formula:
+```
+gpiochip0 (ports A-K): GPIO = port × 32 + pin
+  A=0, B=1, C=2, D=3, ..., J=9, K=10
+
+gpiochip1 (ports L-M): GPIO = port × 32 + pin
+  L=0, M=1
+```
+
+Example: PD16 = 3×32 + 16 = GPIO 112
+
+### Recipe 20: I2C and SPI Access
+
+```bash
+# List I2C buses
+i2cdetect -l
+
+# Scan for devices on bus 2
+i2cdetect -y 2
+
+# Read a register
+i2cget -y 2 0x50 0x00
+
+# Write a register
+i2cset -y 2 0x50 0x00 0xFF
+
+# SPI loopback test (connect MOSI to MISO on 40-pin header)
+# Pins: 19 (MOSI) → 21 (MISO), 23 (CLK), 24 (CS0)
+echo -ne '\x01\x02\x03' | spidev_test -D /dev/spidev1.0 -v
+```
+
+### Recipe 21: Backup and Restore SD Card
+
+```bash
+# On host: backup entire SD card
+sudo dd if=/dev/sdX bs=4M status=progress | xz -T0 > cubie-backup.img.xz
+
+# On host: restore from backup
+xzcat cubie-backup.img.xz | sudo dd of=/dev/sdX bs=4M status=progress
+sync
+
+# On host: backup only rootfs (smaller, no bootloader)
+sudo dd if=/dev/sdX2 bs=4M status=progress | xz -T0 > rootfs-backup.img.xz
+
+# On the board: backup important configs
+tar czf /tmp/config-backup.tar.gz \
+  /etc/wpa_supplicant/wpa_supplicant.conf \
+  /etc/network/interfaces.d/ \
+  /etc/ssh/sshd_config.d/ \
+  /etc/hostname \
+  /etc/hosts
+scp /tmp/config-backup.tar.gz user@host:/backups/
+```
+
+### Recipe 22: Resize Root Filesystem Manually
+
+Normally `first-boot-resize` handles this automatically. If it didn't work:
+
+```bash
+# Check current size
+df -h /
+
+# Expand partition to fill SD card
+echo ", +" | sfdisk -f --no-reread --no-tell-kernel -N 2 /dev/mmcblk0
+partx -u /dev/mmcblk0
+resize2fs /dev/mmcblk0p2
+
+# Verify
+df -h /
+```
+
+### Recipe 23: Set Up a Simple Web Server
+
+```bash
+# Option 1: Python (already installed, no deps)
+cd /var/www && python3 -m http.server 8080 &
+
+# Option 2: nginx (production-grade)
+apt install nginx
+systemctl start nginx
+# Open http://<board-ip>/ in browser
+
+# Option 3: lighttpd (lightweight)
+apt install lighttpd
+systemctl start lighttpd
+```
+
+### Recipe 24: Install and Use Python
+
+```bash
+# Python 3 is available from Debian repos
+apt install python3 python3-pip python3-venv
+
+# Create a virtual environment (recommended on 1 GB RAM)
+python3 -m venv ~/myenv
+source ~/myenv/bin/activate
+
+# Install packages
+pip install flask requests numpy
+
+# Note: compiling large packages (scipy, pandas, torch) may OOM
+# on 1 GB SKU. Use pre-built wheels or cross-compile on host.
+```
+
+### Recipe 25: Install and Use Node.js
+
+```bash
+apt install nodejs npm
+
+# Verify
+node --version
+npm --version
+
+# Simple HTTP server
+cat > ~/server.js << 'EOF'
+const http = require('http');
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Hello from Cubie A7Z!\n');
+}).listen(3000);
+console.log('Server running on port 3000');
+EOF
+node ~/server.js &
+```
+
+### Recipe 26: Configure Firewall
+
+```bash
+apt install ufw
+
+# Allow SSH (do this first!)
+ufw allow 22/tcp
+
+# Allow HTTP/HTTPS
+ufw allow 80/tcp
+ufw allow 443/tcp
+
+# Enable firewall
+ufw enable
+
+# Check status
+ufw status verbose
+
+# Remove a rule
+ufw delete allow 80/tcp
+```
+
+### Recipe 27: Set Up Headless Operation (No Monitor)
+
+The board works headless out of the box — SSH is enabled by default.
+
+```bash
+# 1. Configure WiFi before going headless:
+#    Edit wpa_supplicant.conf (see Recipe 5)
+
+# 2. Find the board on your network:
+# From another machine:
+nmap -sn 192.168.1.0/24 | grep -A1 cubie
+# Or check your router's DHCP table
+
+# 3. Connect via SSH
+ssh cubie@<ip>
+
+# 4. If you can't find the IP, connect UART:
+#    screen /dev/ttyUSB0 115200
+#    Login, run: hostname -I
+```
+
+### Recipe 28: Share Internet from Board via USB (Tethering)
+
+```bash
+# If the board has WiFi internet and you connect a laptop via USB-C J4:
+# Enable IP forwarding
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# Set up NAT (assuming wlan0 has internet)
+apt install iptables
+iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
+```
+
+### Recipe 29: Monitor Network Traffic
+
+```bash
+# Real-time bandwidth
+apt install iftop
+iftop -i wlan0
+
+# Connection list
+ss -tulnp
+
+# Network statistics
+ip -s link show wlan0
+
+# DNS test
+nslookup google.com
+dig google.com
+```
+
+### Recipe 30: Update Kernel or DTB Without Full Rebuild
+
+If you have a new kernel Image or DTB and want to update a running SD card:
+
+```bash
+# 1. Mount boot partition
+mount /dev/mmcblk0p1 /boot
+
+# 2. Copy new kernel
+scp user@buildhost:build/kernel/vmlinuz-6.6.98-cubie_a7z /boot/vmlinuz-6.6.98+
+
+# 3. Copy new DTB
+scp user@buildhost:build/kernel/sun60i-a733-cubie-a7z.dtb /boot/
+
+# 4. Copy new modules (if changed)
+scp -r user@buildhost:build/modules/lib/modules/6.6.98+/ /lib/modules/
+depmod 6.6.98+
+
+# 5. Reboot
+reboot
+```

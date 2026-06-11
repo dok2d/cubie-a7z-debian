@@ -566,3 +566,721 @@ ls /dev/dri/renderD128   # Должен существовать (модуль p
 ```
 
 См. [GPU-TODO.md](../GPU-TODO.md) для технических деталей стека GLVND/Mesa.
+
+---
+
+## Практические рецепты (на плате)
+
+Эти инструкции выполняются **на самой плате** после загрузки, а не при сборке образа.
+
+### Рецепт 1: Смена пароля root или пользователя
+
+```bash
+# Сменить пароль root
+passwd
+
+# Сменить пароль пользователя cubie
+passwd cubie
+
+# Чтобы задать другой пароль при сборке образа,
+# отредактируйте config/debian.env:
+#   ROOT_PASSWORD="newpass"
+#   DEFAULT_PASSWORD="newpass"
+```
+
+### Рецепт 2: Добавить нового пользователя
+
+```bash
+# Создать пользователя с домашней папкой, bash и sudo
+useradd -m -s /bin/bash -G sudo,audio,video,render,input newuser
+passwd newuser
+
+# Проверить
+su - newuser
+whoami
+```
+
+### Рецепт 3: Удалить пользователя
+
+```bash
+# Удалить пользователя вместе с домашней директорией
+userdel -r olduser
+```
+
+### Рецепт 4: Установить пакеты из репозиториев Debian
+
+Плата имеет полный доступ к репозиториям Debian Trixie:
+
+```bash
+apt update
+apt install <пакет>
+
+# Примеры:
+apt install python3 python3-pip   # Python
+apt install nginx                  # Веб-сервер
+apt install mc                     # Файловый менеджер Midnight Commander
+apt install neofetch               # Информация о системе
+apt install iperf3                 # Бенчмарк сети
+apt install nmap                   # Сканер сети
+apt install git                    # Контроль версий
+```
+
+**Примечание**: На 1 ГБ SKU большие пакеты могут вызвать нехватку RAM при установке.
+zram swap (256 МБ) помогает, но тяжёлые компиляции (GCC, Rust) могут вызвать OOM.
+
+### Рецепт 5: Настройка WiFi — полная инструкция
+
+```bash
+# 1. Проверить что WiFi чип включён
+cat /sys/class/misc/sunxi-rfkill/wlan/state
+# Должно быть 1. Если 0:
+echo 1 > /sys/class/misc/sunxi-rfkill/wlan/state
+
+# 2. Сканировать сети
+iw dev wlan0 scan | grep SSID
+
+# 3. Настроить wpa_supplicant
+nano /etc/wpa_supplicant/wpa_supplicant.conf
+```
+
+Добавить сеть:
+```
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=US
+
+network={
+    ssid="МояСеть"
+    psk="МойПароль"
+}
+```
+
+```bash
+# 4. Перезапустить сеть
+systemctl restart networking
+
+# 5. Проверить
+ip addr show wlan0     # должен быть IP
+ping 8.8.8.8           # должен работать
+```
+
+#### Подключение к скрытой сети
+
+```
+network={
+    ssid="HiddenNetwork"
+    scan_ssid=1
+    psk="password"
+}
+```
+
+#### Подключение к корпоративной сети (WPA2-EAP)
+
+```
+network={
+    ssid="CorpWiFi"
+    key_mgmt=WPA-EAP
+    eap=PEAP
+    identity="user@example.com"
+    password="secret"
+    phase2="auth=MSCHAPV2"
+}
+```
+
+#### Подключение к открытой сети
+
+```
+network={
+    ssid="OpenCafe"
+    key_mgmt=NONE
+}
+```
+
+#### Несколько сетей с приоритетом
+
+```
+network={
+    ssid="ДомашняяWiFi"
+    psk="home123"
+    priority=10
+}
+network={
+    ssid="РабочаяWiFi"
+    psk="work456"
+    priority=5
+}
+```
+
+Будет использоваться видимая сеть с наивысшим приоритетом.
+
+### Рецепт 6: Статический IP-адрес
+
+```bash
+nano /etc/network/interfaces.d/wlan0
+```
+
+Заменить `dhcp` на static:
+```
+allow-hotplug wlan0
+iface wlan0 inet static
+    address 192.168.1.100
+    netmask 255.255.255.0
+    gateway 192.168.1.1
+    dns-nameservers 8.8.8.8 8.8.4.4
+    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+```
+
+```bash
+systemctl restart networking
+```
+
+### Рецепт 7: Настройка SSH
+
+#### Сменить порт SSH
+
+```bash
+nano /etc/ssh/sshd_config.d/cubie-a7z.conf
+```
+```
+Port 2222
+PermitRootLogin yes
+PasswordAuthentication yes
+```
+```bash
+systemctl restart ssh
+# Подключение: ssh -p 2222 cubie@<ip>
+```
+
+#### Настроить SSH-ключи (вход без пароля)
+
+На **хосте**:
+```bash
+# Сгенерировать ключ (если нет)
+ssh-keygen -t ed25519
+
+# Скопировать публичный ключ на плату
+ssh-copy-id cubie@<ip-платы>
+
+# Теперь вход без пароля
+ssh cubie@<ip-платы>
+```
+
+#### Отключить вход по паролю (только ключи)
+
+После подтверждения что ключ работает:
+```bash
+# На плате:
+nano /etc/ssh/sshd_config.d/cubie-a7z.conf
+```
+```
+PasswordAuthentication no
+PubkeyAuthentication yes
+```
+```bash
+systemctl restart ssh
+```
+
+#### Отключить SSH-доступ для root
+
+```bash
+nano /etc/ssh/sshd_config.d/cubie-a7z.conf
+```
+```
+PermitRootLogin no
+```
+```bash
+systemctl restart ssh
+```
+
+### Рецепт 8: Передача файлов на/с платы
+
+```bash
+# Скопировать файл на плату
+scp myfile.txt cubie@<ip>:/home/cubie/
+
+# Скопировать файл с платы
+scp cubie@<ip>:/home/cubie/results.txt .
+
+# Скопировать директорию
+scp -r my-project/ cubie@<ip>:/home/cubie/
+
+# Интерактивная передача
+sftp cubie@<ip>
+
+# rsync (лучше для больших/инкрементальных передач)
+rsync -avz my-project/ cubie@<ip>:/home/cubie/my-project/
+```
+
+### Рецепт 9: Часовой пояс и локаль
+
+```bash
+# Список часовых поясов
+timedatectl list-timezones | grep Moscow
+
+# Установить часовой пояс
+timedatectl set-timezone Europe/Moscow
+
+# Проверить
+date
+timedatectl status
+
+# Установить локаль (C.utf8 по умолчанию, locale-gen не нужен)
+# Для конкретной локали:
+apt install locales
+dpkg-reconfigure locales
+```
+
+### Рецепт 10: Сменить hostname
+
+```bash
+hostnamectl set-hostname my-cubie
+# Также обновить /etc/hosts
+nano /etc/hosts
+# Изменить: 127.0.1.1  my-cubie
+```
+
+### Рецепт 11: Подключить USB-накопитель
+
+```bash
+# 1. Подключить USB к J4 (верхний USB-C, через OTG-адаптер)
+
+# 2. Найти устройство
+lsblk
+# Обычно: /dev/sda1
+
+# 3. Смонтировать
+mkdir -p /mnt/usb
+mount /dev/sda1 /mnt/usb
+
+# 4. Использовать
+ls /mnt/usb
+
+# 5. Размонтировать перед извлечением
+umount /mnt/usb
+```
+
+#### Автомонтирование при загрузке
+
+```bash
+# Найти UUID
+blkid /dev/sda1
+
+# Добавить в fstab
+echo 'UUID=xxxx-xxxx  /mnt/usb  vfat  defaults,nofail  0  2' >> /etc/fstab
+```
+
+### Рецепт 12: Проверить состояние системы
+
+```bash
+# Температура CPU
+cat /sys/class/thermal/thermal_zone3/temp
+# Делить на 1000 для градусов (52000 = 52°C)
+
+# Температура GPU
+cat /sys/class/thermal/thermal_zone4/temp
+
+# Температура DDR
+cat /sys/class/thermal/thermal_zone1/temp
+
+# Все температуры сразу
+paste <(cat /sys/class/thermal/thermal_zone*/type) \
+      <(cat /sys/class/thermal/thermal_zone*/temp) \
+  | awk '{printf "%-20s %d°C\n", $1, $2/1000}'
+
+# Частота CPU
+cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq
+
+# Использование RAM
+free -h
+
+# Использование диска
+df -h
+
+# Аптайм и нагрузка
+uptime
+
+# Сбойные systemd юниты
+systemctl --failed
+
+# Ошибки dmesg
+dmesg | grep -i error | tail -20
+
+# Полный тест железа
+bash /root/tests/test-all.sh
+```
+
+### Рецепт 13: Управление systemd-сервисами
+
+```bash
+# Список запущенных сервисов
+systemctl list-units --type=service
+
+# Статус конкретного сервиса
+systemctl status ssh
+systemctl status networking
+
+# Запустить / остановить / перезапустить
+systemctl start nginx
+systemctl stop nginx
+systemctl restart nginx
+
+# Включить/выключить автозапуск
+systemctl enable nginx
+systemctl disable nginx
+
+# Логи сервиса
+journalctl -u ssh -f          # следить в реальном времени
+journalctl -u ssh --since today
+journalctl -u networking -b   # с последней загрузки
+```
+
+### Рецепт 14: Создать свой systemd-сервис
+
+Пример: автозапуск Python-скрипта при загрузке.
+
+```bash
+cat > /etc/systemd/system/my-app.service << 'EOF'
+[Unit]
+Description=My Application
+After=network.target
+
+[Service]
+Type=simple
+User=cubie
+WorkingDirectory=/home/cubie
+ExecStart=/usr/bin/python3 /home/cubie/my-app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable my-app
+systemctl start my-app
+systemctl status my-app
+```
+
+### Рецепт 15: Настроить cron-задачу
+
+```bash
+# Редактировать crontab для root
+crontab -e
+
+# Примеры:
+# Запускать скрипт каждые 5 минут
+*/5 * * * * /home/cubie/my-script.sh
+
+# Запускать в 3 ночи ежедневно
+0 3 * * * apt update && apt upgrade -y
+
+# Запускать при перезагрузке
+@reboot /home/cubie/startup.sh
+
+# Сохранить и просмотреть
+crontab -l
+```
+
+### Рецепт 16: Настроить Bluetooth
+
+```bash
+# Запустить bluetoothctl
+bluetoothctl
+
+# Внутри bluetoothctl:
+power on
+agent on
+default-agent
+scan on
+# Ждать появления устройств...
+# pair XX:XX:XX:XX:XX:XX
+# connect XX:XX:XX:XX:XX:XX
+# trust XX:XX:XX:XX:XX:XX
+scan off
+exit
+```
+
+### Рецепт 17: Воспроизведение аудио через HDMI
+
+```bash
+# Список звуковых карт
+aplay -l
+# Должна быть: sndhdmi
+
+# Воспроизвести WAV файл
+aplay -D hw:sndhdmi test.wav
+
+# Тест динамиков
+speaker-test -D hw:sndhdmi -c 2 -t wav
+
+# Регулировка громкости
+amixer -c sndhdmi set PCM 80%
+```
+
+### Рецепт 18: Запуск NPU inference
+
+```bash
+# Создать конфигурацию
+cat > /tmp/resnet50.txt << 'EOF'
+[network]
+/usr/share/npu/models/resnet50.nb
+[input]
+/usr/share/npu/input_data/goldfish_224x224.dat
+EOF
+
+# Запустить inference
+vpm_run -s /tmp/resnet50.txt -l 1
+# Результат: время inference ~7.5 мс
+
+# Со случайными данными (224x224x3 = 150528 байт)
+dd if=/dev/urandom of=/tmp/random.dat bs=150528 count=1
+cat > /tmp/test.txt << 'EOF'
+[network]
+/usr/share/npu/models/resnet50.nb
+[input]
+/tmp/random.dat
+EOF
+vpm_run -s /tmp/test.txt -l 1
+```
+
+### Рецепт 19: Работа с GPIO
+
+```bash
+# Список GPIO чипов
+gpiodetect
+
+# Список всех GPIO линий
+gpioinfo
+
+# Прочитать значение GPIO (напр. PB0 = GPIO 32 на gpiochip0)
+gpioget gpiochip0 32
+
+# Установить выход в высокий уровень
+gpioset gpiochip0 32=1
+
+# Установить в низкий уровень
+gpioset gpiochip0 32=0
+
+# Мониторить события GPIO
+gpiomon gpiochip0 32
+```
+
+Формула номера GPIO:
+```
+gpiochip0 (порты A-K): GPIO = порт × 32 + пин
+  A=0, B=1, C=2, D=3, ..., J=9, K=10
+
+gpiochip1 (порты L-M): GPIO = порт × 32 + пин
+  L=0, M=1
+```
+
+Пример: PD16 = 3×32 + 16 = GPIO 112
+
+### Рецепт 20: I2C и SPI доступ
+
+```bash
+# Список I2C шин
+i2cdetect -l
+
+# Сканировать устройства на шине 2
+i2cdetect -y 2
+
+# Прочитать регистр
+i2cget -y 2 0x50 0x00
+
+# Записать регистр
+i2cset -y 2 0x50 0x00 0xFF
+
+# SPI loopback тест (соединить MOSI с MISO на 40-pin header)
+# Пины: 19 (MOSI) → 21 (MISO), 23 (CLK), 24 (CS0)
+echo -ne '\x01\x02\x03' | spidev_test -D /dev/spidev1.0 -v
+```
+
+### Рецепт 21: Бэкап и восстановление SD-карты
+
+```bash
+# На хосте: бэкап всей SD-карты
+sudo dd if=/dev/sdX bs=4M status=progress | xz -T0 > cubie-backup.img.xz
+
+# На хосте: восстановление из бэкапа
+xzcat cubie-backup.img.xz | sudo dd of=/dev/sdX bs=4M status=progress
+sync
+
+# На хосте: бэкап только rootfs (меньше, без загрузчика)
+sudo dd if=/dev/sdX2 bs=4M status=progress | xz -T0 > rootfs-backup.img.xz
+
+# На плате: бэкап важных конфигов
+tar czf /tmp/config-backup.tar.gz \
+  /etc/wpa_supplicant/wpa_supplicant.conf \
+  /etc/network/interfaces.d/ \
+  /etc/ssh/sshd_config.d/ \
+  /etc/hostname \
+  /etc/hosts
+scp /tmp/config-backup.tar.gz user@host:/backups/
+```
+
+### Рецепт 22: Ручное расширение файловой системы
+
+Обычно `first-boot-resize` делает это автоматически. Если не сработало:
+
+```bash
+# Проверить текущий размер
+df -h /
+
+# Расширить раздел до конца SD
+echo ", +" | sfdisk -f --no-reread --no-tell-kernel -N 2 /dev/mmcblk0
+partx -u /dev/mmcblk0
+resize2fs /dev/mmcblk0p2
+
+# Проверить
+df -h /
+```
+
+### Рецепт 23: Простой веб-сервер
+
+```bash
+# Вариант 1: Python (уже установлен, без зависимостей)
+cd /var/www && python3 -m http.server 8080 &
+
+# Вариант 2: nginx (промышленный)
+apt install nginx
+systemctl start nginx
+# Открыть http://<ip-платы>/ в браузере
+
+# Вариант 3: lighttpd (лёгкий)
+apt install lighttpd
+systemctl start lighttpd
+```
+
+### Рецепт 24: Установка Python
+
+```bash
+# Python 3 доступен из репозиториев Debian
+apt install python3 python3-pip python3-venv
+
+# Виртуальное окружение (рекомендуется на 1 ГБ RAM)
+python3 -m venv ~/myenv
+source ~/myenv/bin/activate
+
+# Установка пакетов
+pip install flask requests numpy
+
+# Примечание: компиляция больших пакетов (scipy, pandas, torch)
+# может вызвать OOM на 1 ГБ SKU. Используйте готовые wheel или
+# кросс-компилируйте на хосте.
+```
+
+### Рецепт 25: Установка Node.js
+
+```bash
+apt install nodejs npm
+
+# Проверить
+node --version
+npm --version
+
+# Простой HTTP сервер
+cat > ~/server.js << 'EOF'
+const http = require('http');
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Hello from Cubie A7Z!\n');
+}).listen(3000);
+console.log('Server running on port 3000');
+EOF
+node ~/server.js &
+```
+
+### Рецепт 26: Настройка файрволла
+
+```bash
+apt install ufw
+
+# Разрешить SSH (сначала!)
+ufw allow 22/tcp
+
+# Разрешить HTTP/HTTPS
+ufw allow 80/tcp
+ufw allow 443/tcp
+
+# Включить файрволл
+ufw enable
+
+# Проверить статус
+ufw status verbose
+
+# Удалить правило
+ufw delete allow 80/tcp
+```
+
+### Рецепт 27: Headless-режим (без монитора)
+
+Плата работает headless из коробки — SSH включён по умолчанию.
+
+```bash
+# 1. Настроить WiFi до перехода в headless (см. Рецепт 5)
+
+# 2. Найти плату в сети (с другого компьютера):
+nmap -sn 192.168.1.0/24 | grep -A1 cubie
+# Или проверить таблицу DHCP на роутере
+
+# 3. Подключиться по SSH
+ssh cubie@<ip>
+
+# 4. Если не удаётся найти IP — подключить UART:
+#    screen /dev/ttyUSB0 115200
+#    Войти, выполнить: hostname -I
+```
+
+### Рецепт 28: Раздача интернета через USB (тетеринг)
+
+```bash
+# Если плата имеет WiFi-интернет и вы подключили ноутбук через USB-C J4:
+# Включить IP forwarding
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# Настроить NAT (wlan0 имеет интернет)
+apt install iptables
+iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
+```
+
+### Рецепт 29: Мониторинг сетевого трафика
+
+```bash
+# Пропускная способность в реальном времени
+apt install iftop
+iftop -i wlan0
+
+# Список соединений
+ss -tulnp
+
+# Статистика интерфейса
+ip -s link show wlan0
+
+# Тест DNS
+nslookup google.com
+dig google.com
+```
+
+### Рецепт 30: Обновление ядра или DTB без полной пересборки
+
+Если есть новый kernel Image или DTB и нужно обновить запущенную SD-карту:
+
+```bash
+# 1. Смонтировать boot-раздел
+mount /dev/mmcblk0p1 /boot
+
+# 2. Скопировать новое ядро
+scp user@buildhost:build/kernel/vmlinuz-6.6.98-cubie_a7z /boot/vmlinuz-6.6.98+
+
+# 3. Скопировать новый DTB
+scp user@buildhost:build/kernel/sun60i-a733-cubie-a7z.dtb /boot/
+
+# 4. Скопировать новые модули (если изменились)
+scp -r user@buildhost:build/modules/lib/modules/6.6.98+/ /lib/modules/
+depmod 6.6.98+
+
+# 5. Перезагрузить
+reboot
+```
