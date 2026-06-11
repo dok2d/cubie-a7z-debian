@@ -65,9 +65,12 @@ sleep 1
 
 # Restore fbcon after KMSDRM app exits
 sleep 1
-echo 0 > /sys/class/vtconsole/vtcon1/bind 2>/dev/null
-sleep 1
-echo 1 > /sys/class/vtconsole/vtcon1/bind 2>/dev/null
+for vtcon in /sys/class/vtconsole/vtcon*; do
+  [ "$(cat "$vtcon/name" 2>/dev/null)" = "(M) frame buffer device" ] || continue
+  echo 0 > "$vtcon/bind" 2>/dev/null; sleep 1
+  echo 1 > "$vtcon/bind" 2>/dev/null
+  break
+done
 chvt 1 2>/dev/null
 LAUNCHER
 chmod +x /usr/local/bin/kmsdrm-run

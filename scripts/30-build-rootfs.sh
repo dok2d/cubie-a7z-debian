@@ -500,9 +500,13 @@ do_modeset() {
   sleep 1
   pkill -x modetest 2>/dev/null
   sleep 1
-  echo 0 > /sys/class/vtconsole/vtcon1/bind 2>/dev/null
-  sleep 1
-  echo 1 > /sys/class/vtconsole/vtcon1/bind 2>/dev/null
+  # Rebind fbcon (find the frame buffer vtconsole, not hardcoded index)
+  for vtcon in /sys/class/vtconsole/vtcon*; do
+    [ "$(cat "$vtcon/name" 2>/dev/null)" = "(M) frame buffer device" ] || continue
+    echo 0 > "$vtcon/bind" 2>/dev/null; sleep 1
+    echo 1 > "$vtcon/bind" 2>/dev/null
+    break
+  done
   chvt 1 2>/dev/null
   echo 0x0 > "$HPD"
   logger -t hdmi-daemon "modeset + fbcon rebind done"

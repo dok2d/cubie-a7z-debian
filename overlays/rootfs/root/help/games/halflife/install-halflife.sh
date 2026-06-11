@@ -92,7 +92,7 @@ for dm in lightdm sddm; do systemctl stop "$dm" 2>/dev/null; done
 pkill -x Xorg 2>/dev/null; pkill -x sway 2>/dev/null
 sleep 1
 cd /opt/halflife
-exec ./xash3d -ref gles3compat -width 1920 -height 1080 -fullscreen "$@"
+exec ./xash3d -ref gles3compat -fullscreen "$@"
 LAUNCHER
 chmod +x /usr/local/bin/halflife-kmsdrm
 
@@ -101,7 +101,7 @@ cat > /usr/local/bin/halflife-x11 << 'LAUNCHER'
 #!/bin/bash
 export LD_LIBRARY_PATH=/usr/local/lib:/opt/halflife
 cd /opt/halflife
-exec ./xash3d -ref gles3compat -width 1920 -height 1080 -fullscreen "$@"
+exec ./xash3d -ref gles3compat -fullscreen "$@"
 LAUNCHER
 chmod +x /usr/local/bin/halflife-x11
 
