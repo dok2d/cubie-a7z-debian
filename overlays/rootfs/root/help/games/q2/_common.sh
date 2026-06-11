@@ -29,13 +29,21 @@ print_game_status() {
   local INSTALLDIR="$1"
   local Q2DIR="$INSTALLDIR/baseq2"
   if [ -f "$Q2DIR/pak0.pak" ]; then
-    echo "Game data: $(ls "$Q2DIR"/*.pak 2>/dev/null | wc -l) pak file(s)"
+    echo "Game data: $(ls "$Q2DIR"/*.pak 2>/dev/null | wc -l) pak file(s) in $Q2DIR/"
   else
-    echo "WARNING: No pak files. Copy pak0.pak to $Q2DIR/"
+    echo "WARNING: No game data found."
+    echo ""
+    echo "Next steps — copy game files to $Q2DIR/:"
+    echo "  # From GOG (on PC):"
+    echo "  innoextract setup_quake2*.exe"
+    echo "  scp -r game/baseq2/* root@<board-ip>:$Q2DIR/"
+    echo ""
+    echo "  # From Steam (on PC):"
+    echo "  scp -r ~/.local/share/Steam/steamapps/common/Quake\\ 2/baseq2/* root@<board-ip>:$Q2DIR/"
+    echo ""
+    echo "  # Shareware demo (auto-downloaded if available)"
+    echo "  # Includes pak0.pak with first few levels"
   fi
-  echo ""
-  echo "Full game: copy baseq2/ from GOG/Steam Quake II to $Q2DIR/"
-  echo "Extract GOG installer: innoextract setup_quake2*.exe"
 }
 
 create_desktop_entry() {

@@ -77,13 +77,12 @@ echo ""
 if [ -f "$INSTALLDIR/quake2" ]; then
   echo "=== Quake II (Vulkan/X11) installed ==="
   echo ""
-  echo "Vulkan:   quake2-vk"
-  echo "Software: quake2-soft"
-  echo "Desktop:  Quake II in application menu"
+  echo "How to play (requires a running desktop):"
+  echo "  quake2-vk       # Vulkan renderer (recommended)"
+  echo "  quake2-soft     # Software renderer (fallback)"
+  echo "  # Or launch from application menu"
   echo ""
   print_game_status "$INSTALLDIR"
-  echo ""
-  echo "GPU: PowerVR BXM-4-64 — Vulkan 1.3"
 else
   echo "ERROR: Build failed."
 fi
