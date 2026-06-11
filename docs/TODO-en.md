@@ -1,6 +1,6 @@
 # Cubie A7Z — TODO
 
-Updated: 2026-06-08
+Updated: 2026-06-11
 
 Full plan: [hardware-enablement.md](hardware-enablement.md)
 Dependencies: [rootfs-dependency-map.md](rootfs-dependency-map.md)
@@ -8,18 +8,20 @@ Known issues: [known-issues-en.md](known-issues-en.md)
 
 ---
 
-## Working (verified on hardware 2026-06-09)
+## Working (verified on hardware 2026-06-11)
 
 - WiFi: network connection, DHCP, internet (radxa-pkg/aic8800), wlan0, autostart
 - USB-C host: HID (keyboard), VBUS via PL2 GPIO
 - **GPU: glamor acceleration on PowerVR BXM-4-64** (PVR Mesa via allwinner-target overlay)
-- HDMI: video (1080p) + audio (sndhdmi)
+- **GPU gaming**: Quake II 60fps GLES3 KMSDRM, Half-Life 60fps GLES3 KMSDRM
+- HDMI: video (1080p) + audio (sndhdmi), hotplug daemon
 - PCIe: controller visible (root port)
 - NPU: /dev/vipcore, vpm_run, ResNet50 inference 7.5ms
 - SPI1: /dev/spidev1.0 on 40-pin header
 - BT: btusb, hci0, bluetoothctl
 - CPU freq: schedutil, A55 up to 1794 MHz, A76 up to 2002 MHz
 - SSH, NTP, fake-hwclock, networking — all autostart
+- zram swap: 256 MB compressed swap (critical for 1 GB SKU)
 - All utilities: curl, wget, gawk, gpiodetect, i2cdetect, tmux, screen, etc.
 - SD boot + first-boot-resize (58G)
 - LED heartbeat

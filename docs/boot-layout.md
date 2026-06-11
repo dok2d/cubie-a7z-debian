@@ -1,6 +1,6 @@
 # Boot layout — Cubie A7Z (sun60iw2p1)
 
-Обновлено: 2026-06-03
+Обновлено: 2026-06-11
 
 All offsets are in 512-byte sectors unless noted.
 

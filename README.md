@@ -1,11 +1,11 @@
 # Cubie A7Z Debian
 
-Reproducible Debian Trixie (arm64) on linux 6.6.98+ image builder for the **Radxa Cubie A7Z** — a compact SBC powered by the Allwinner A733 octa-core SoC.
+Reproducible Debian Trixie (arm64) image builder for the **Radxa Cubie A7Z** — a compact SBC powered by the Allwinner A733 octa-core SoC.
 
 ```bash
-root@cubie-a7z:~# screenfetch 
+root@cubie-a7z:~# screenfetch
          _,met$$$$$gg.           root@cubie-a7z
-      ,g$$$$$$$$$$$$$$$P.        OS: Debian 
+      ,g$$$$$$$$$$$$$$$P.        OS: Debian
     ,g$$P""       """Y$$.".      Kernel: aarch64 Linux 6.6.98+
    ,$$P'              `$$$.      Uptime: 2m
   ',$$P       ,ggs.     `$$b:    Packages: 676
@@ -13,15 +13,15 @@ root@cubie-a7z:~# screenfetch
    $$P      d$'     ,    $$P     Disk: 2.3G / 62G (4%)
    $$:      $$.   -    ,d$$'     CPU: ARM Cortex-A55 Cortex-A76 @ 8x 1.794GHz
    $$\;      Y$b._   _,d$P'      RAM: 230MiB / 891MiB
-   Y$$.    `.`"Y$$$$P"'         
-   `$$b      "-.__              
-    `Y$$                        
-     `Y$$.                      
-       `$$b.                    
-         `Y$$b.                 
-            `"Y$b._             
+   Y$$.    `.`"Y$$$$P"'
+   `$$b      "-.__
+    `Y$$
+     `Y$$.
+       `$$b.
+         `Y$$b.
+            `"Y$b._
                 `""""
-```    
+```
 
 > WiFi, GPU, NPU, HDMI, USB-C, Bluetooth, PCIe — all working out of the box.
 
@@ -92,26 +92,50 @@ systemctl restart networking
 
 ## What Works
 
-Verified on real hardware (2026-06-07, 80/80 diagnostic checks pass):
+Verified on real hardware (2026-06-09, 80/80 diagnostic checks pass):
 
 | Subsystem | Status | Details |
 |-----------|--------|---------|
 | WiFi | **Working** | AIC8800D80, wlan0, auto-connect on boot |
 | Bluetooth | **Working** | btusb, hci0, bluetoothctl |
-| GPU | **Working** | pvrsrvkm, /dev/dri/renderD128 |
+| GPU | **Working** | pvrsrvkm, glamor acceleration, /dev/dri/renderD128 |
 | NPU | **Working** | vipcore, vpm_run inference, ResNet50/YOLOv5 |
-| HDMI | **Working** | Video + audio (sndhdmi) |
+| HDMI | **Working** | Video + audio (sndhdmi), hotplug daemon |
 | USB-C Host | **Working** | HID, hubs, VBUS power control |
 | PCIe | **Working** | Root port visible, needs M.2 adapter for NVMe |
 | SPI | **Working** | /dev/spidev1.0 on 40-pin header |
 | SSH | **Working** | Auto-start, port 22 |
 | NTP | **Working** | systemd-timesyncd + fake-hwclock |
+| zram swap | **Working** | 256 MB compressed swap (critical for 1 GB SKU) |
 
 See [known issues](docs/known-issues-en.md) for edge cases (UFS, CPU freq, TCPC).
 
-## How It Works
+## External Source Repositories
 
-No vendor binaries in git. Everything is fetched from public repos at build time:
+No vendor binaries in git. Everything is fetched from public repos at build time.
+All commits are pinned to specific SHAs in [`config/board.cubie-a7z.env`](config/board.cubie-a7z.env).
+
+| # | Repository | URL | Branch | Purpose |
+|---|------------|-----|--------|---------|
+| 1 | orangepi-build | https://github.com/orangepi-xunlong/orangepi-build.git | `next` | Kernel defconfig, pack-uboot tools |
+| 2 | linux-orangepi | https://github.com/orangepi-xunlong/linux-orangepi.git | `orange-pi-6.6-sun60iw2` | BSP kernel 6.6.98+ (A733 support) |
+| 3 | u-boot-orangepi | https://github.com/orangepi-xunlong/u-boot-orangepi.git | `v2018.05-sun60iw2` | U-Boot 2018.07 via brandy-2.0 |
+| 4 | allwinner-bsp | https://github.com/radxa/allwinner-bsp.git | `cubie-aiot-v1.4.6` | Boot0, SCP firmware, chip configs |
+| 5 | allwinner-target | https://github.com/radxa/allwinner-target.git | `target-a733-v1.4.6` | Firmware overlay (GPU/WiFi/Xorg userland) |
+| 6 | allwinner-device | https://github.com/radxa/allwinner-device.git | `device-a733-v1.4.6` | Board configs (sys_config.fex) |
+| 7 | aic8800 | https://github.com/radxa-pkg/aic8800.git | `main` | WiFi/BT USB driver (AIC8800D80) |
+| 8 | ai-sdk | https://github.com/ZIFENG278/ai-sdk.git | `main` | NPU SDK (VIPLite v2.0, vpm_run, models) |
+| 9 | Radxa stock image | https://github.com/radxa-build/radxa-cubie-a7z/releases | `rsdk-b1` | Stock boot0 extraction (SHA256-verified) |
+
+**Additional references:**
+
+- [Radxa Cubie A7Z docs](https://docs.radxa.com/en/cubie/a7z)
+- [Radxa schematic v1.10 (PDF)](https://dl.radxa.com/cubie/a7z/docs/hw/radxa_Cubie_A7Z_v1100__schematic.pdf)
+- [Mesa PowerVR docs](https://docs.mesa3d.org/drivers/powervr.html) — GPU driver reference
+- [TI AM67 PVR build guide](https://software-dl.ti.com/jacinto7/esd/processor-sdk-linux-am67/10_01_08_01/exports/docs/linux/Foundational_Components/Graphics/Rogue/Build_Guide.html) — same GPU family
+- [geerlingguy/sbc-reviews#100](https://github.com/geerlingguy/sbc-reviews/issues/100) — community review with GPU benchmarks
+
+## How It Works
 
 ```
 make fetch       →  Clone 9 repos (kernel, U-Boot, BSP, drivers, SDK)
@@ -121,9 +145,6 @@ make kernel      →  Cross-compile BSP kernel 6.6.98+ with WiFi/GPU/NPU modules
 make rootfs      →  debootstrap Debian Trixie + configure services
 make image       →  Partition, format, populate → cubie_a7z-trixie.img.xz
 ```
-
-All source commits are pinned in [`config/board.cubie-a7z.env`](config/board.cubie-a7z.env).
-Patches live in [`patches/`](patches/). Our device tree: [`config/dts/`](config/dts/).
 
 ## Project Structure
 
@@ -155,23 +176,44 @@ overlays/rootfs/
 ├── root/
 │   ├── help/                       → /root/help/
 │   │   ├── wifi.txt                    WiFi setup guide
-│   │   ├── install-xfce.sh            XFCE4 desktop (X11, recommended)
-│   │   ├── install-i3.sh              i3 tiling WM (X11)
-│   │   ├── install-lxqt.sh            LXQt desktop (X11, Qt)
-│   │   ├── install-sway.sh            Sway tiling WM (Wayland)
-│   │   └── install-labwc.sh           labwc compositor (Wayland)
+│   │   ├── setup-gpu.sh                GPU acceleration setup
+│   │   ├── setup-vulkan.sh             Vulkan ICD configuration
+│   │   ├── setup-sdl3.sh               SDL3 build from source
+│   │   ├── setup-kmsdrm.sh             KMSDRM (console gaming without X11)
+│   │   ├── wm/                         Desktop environment installers
+│   │   │   ├── install-xfce.sh             XFCE4 desktop (X11, recommended)
+│   │   │   ├── install-i3.sh               i3 tiling WM (X11)
+│   │   │   ├── install-lxqt.sh             LXQt desktop (X11, Qt)
+│   │   │   ├── install-sway.sh             Sway tiling WM (Wayland)
+│   │   │   └── install-labwc.sh            labwc compositor (Wayland)
+│   │   └── games/                      Game install/run scripts
+│   │       ├── q2/                         Yamagi Quake II (60 fps GLES3)
+│   │       ├── q3/                         ioquake3 / Q3lite
+│   │       ├── halflife/                   Xash3D FWGS (60 fps GLES3)
+│   │       └── serioussam/                 Serious Engine 1
 │   └── tests/                      → /root/tests/ (hardware test scripts)
 │       ├── test-all.sh
 │       ├── test-wifi.sh, test-gpu.sh, test-npu.sh, ...
 ```
 
-The default overlay ships WiFi guide, desktop environment installers,
-and per-subsystem hardware tests. On the board:
+On the board:
 
 ```bash
-bash /root/help/install-xfce.sh     # install a desktop
-bash /root/tests/test-all.sh        # verify hardware
+bash /root/help/wm/install-xfce.sh     # install a desktop
+bash /root/tests/test-all.sh            # verify hardware
+bash /root/help/games/q2/install-quake2.sh  # install Quake II
 ```
+
+## GPU Gaming
+
+Verified games running at 60 fps on real hardware:
+
+| Game | Engine | FPS | Renderer |
+|------|--------|-----|----------|
+| Yamagi Quake II | Yamagi Q2 | 60 (GLES3 KMSDRM), 67 (Vulkan X11) | ref_gles3 / ref_vk |
+| Half-Life | Xash3D FWGS | 60 (GLES3 KMSDRM) | gles3compat |
+
+See [GPU-GAMES.md](GPU-GAMES.md) for the full game compatibility list (17 titles rated).
 
 ## Documentation
 
@@ -185,6 +227,9 @@ bash /root/tests/test-all.sh        # verify hardware
 | [Firmware BoM](docs/firmware-bom.md) | Per-chip driver and firmware checklist |
 | [40-pin Pinout](docs/a7z-40pin-pinout.md) | GPIO header pin assignments |
 | [Rootfs Deps](docs/rootfs-dependency-map.md) | Shared library dependency tree |
+| [Hardware Enablement](docs/hardware-enablement.md) | Full peripheral bring-up plan |
+| [GPU Games](GPU-GAMES.md) | Game compatibility list and install guides |
+| [GPU TODO](GPU-TODO.md) | GPU acceleration research and GLVND notes |
 
 ## Requirements
 

@@ -278,31 +278,34 @@ Source of these blobs:
 
 ---
 
-## What is NOT going to work on v1
+## Subsystem Status (as of 2026-06-09)
 
-Documenting explicitly so the agent doesn't burn cycles fighting it.
-
-| Function | Reason |
-|---|---|
-| 3D graphics (PowerVR) | Proprietary userland, not packaged |
-| NPU | Vivante VIP9000 needs Cubie ACUITY SDK; out of v1 scope |
-| Hardware video decode | BSP `cedrus`-equivalent untested on sun60i; defer |
-| HDMI audio | DECISIONS.md defers |
-| USB-C DP alt mode | DECISIONS.md defers |
-| Wake-on-WLAN | Driver-side; not a v1 goal |
-| Suspend / resume | Allwinner BSP support varies; defer past v1 |
+| Function | Status | Notes |
+|---|---|---|
+| 3D graphics (PowerVR) | **Working** | pvrsrvkm + PVR Mesa from allwinner-target overlay, glamor acceleration |
+| NPU | **Working** | VIPLite v2.0 runtime + vpm_run, ResNet50 inference 7.5ms |
+| HDMI audio | **Working** | sndhdmi soundcard, aplay works |
+| GPU gaming | **Working** | Quake II 60fps GLES3, Half-Life 60fps GLES3 |
+| Hardware video decode | Not tested | BSP `cedrus`-equivalent untested on sun60i; defer |
+| USB-C DP alt mode | Not working | Needs ET7304Y TCPC driver (probe -22) |
+| Wake-on-WLAN | Not tested | Driver-side; not a current goal |
+| Suspend / resume | Not tested | Allwinner BSP support varies; defer |
 
 ---
 
+## Verified on Hardware (2026-06-09)
+
+1. AIC8800 chip rev: **D80** (AIC8800D80, USB), driver: radxa-pkg/aic8800
+2. UFS chip: **not soldered** on tested SKU — link_startup_fail is expected
+3. PMIC: **AXP8191** (not AXP318/AXP515) — I2C-13 addr 0x36, 43 regulators working
+4. USB-PD controller: **ET7304Y** — I2C bus 14 addr 0x4E, generic tcpci probe fails (-22)
+5. SPI NOR: not confirmed on tested board revision
+6. DRAM: LPDDR4X, 1 GB on tested SKU, stock boot0 from Radxa rsdk-b1 image works
+
 ## Open verification items
 
-These need a real A7Z and a serial console to confirm:
+Remaining items for other SKUs:
 
-1. Exact AIC8800 chip rev (`u02`, `u02b0`, etc.) → `dmesg | grep aic`.
-2. Exact UFS chip on UFS-equipped SKUs → `cat /sys/class/scsi_device/*/device/{vendor,model,rev}`.
-3. AXP318 `compatible` string Allwinner uses in 6.6 BSP DTS.
-4. USB-PD controller part (if any) on schematic page 12 — fetch page 12
-   from the PDF on hardware and read off the silkscreen.
-5. SPI NOR present / not on this board revision.
-6. Hynix DRAM part number suffix per SKU (1/4/8/16 GB) — affects boot0
-   dram_para block selection.
+1. Exact UFS chip on UFS-equipped SKUs → `cat /sys/class/scsi_device/*/device/{vendor,model,rev}`
+2. SPI NOR presence on different board revisions
+3. Hynix DRAM part number suffix per SKU (4/8/16 GB) — may affect boot0 dram_para

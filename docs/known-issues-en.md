@@ -1,6 +1,6 @@
 # Known Issues — Cubie A7Z Debian
 
-Updated: 2026-06-08
+Updated: 2026-06-11
 
 ## Resolved
 
