@@ -25,7 +25,6 @@ Directory layout:
     install-labwc.sh      labwc compositor (Wayland)
 
   games/                Game installers (build from source on board)
-    BENCHMARK.md          Performance results for all tested games
     q2/                   Quake II — KMSDRM GLES3 / X11 Vulkan (verified 60fps)
     q3/                   Quake III + OpenArena — X11 gl4es (blocked by GLVND)
     halflife/             Half-Life — KMSDRM native GLES (verified 60fps)
