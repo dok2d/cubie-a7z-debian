@@ -24,10 +24,12 @@ Directory layout:
     install-sway.sh       Sway tiling WM (Wayland)
     install-labwc.sh      labwc compositor (Wayland)
 
-  games/q2/             Quake II — interactive (KMSDRM GLES3 / Vulkan X11)
-  games/q3/             Quake III + OpenArena — gl4es (KMSDRM / X11)
-  games/halflife/       Half-Life — Xash3D, native GLES2 (KMSDRM / X11)
-  games/serioussam/     Serious Sam TFE — Vulkan (X11 only)
+  games/                Game installers (build from source on board)
+    BENCHMARK.md          Performance results for all tested games
+    q2/                   Quake II — KMSDRM GLES3 / X11 Vulkan (verified 60fps)
+    q3/                   Quake III + OpenArena — X11 gl4es (blocked by GLVND)
+    halflife/             Half-Life — KMSDRM native GLES (verified 60fps)
+    serioussam/           Serious Sam TFE — X11 Vulkan (untested)
 
 After desktop install, reboot — starts automatically on HDMI:
   X11 (xfce/i3/lxqt):    via lightdm/sddm display manager
@@ -36,6 +38,10 @@ After desktop install, reboot — starts automatically on HDMI:
 GPU:
   PowerVR BXM-4-64 — OpenGL ES 3.2, Vulkan 1.3 (X11 only), OpenCL 3.0
   Vulkan on KMSDRM not supported (PVR ICD lacks VK_KHR_display).
+
+HDMI hotplug:
+  Handled by hdmi-hotplug-daemon systemd service.
+  Console recovers automatically after cable replug (~10s).
 
 Hardware tests:
   bash /root/tests/test-all.sh    Run all tests

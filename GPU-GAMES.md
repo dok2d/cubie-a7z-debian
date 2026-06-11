@@ -1,6 +1,8 @@
 # Games for Cubie A7Z (ARM64 / PowerVR BXM-4-64 / 1 GB RAM)
 
-**Baseline reference:** Yamagi Quake II -- 60 fps GLES3 KMSDRM, 67 fps Vulkan X11.
+**Verified on hardware:**
+- Yamagi Quake II — 60 fps GLES3 KMSDRM, 67 fps Vulkan X11
+- Half-Life (Xash3D FWGS) — 60 fps gles3compat KMSDRM
 
 **GPU context:** PowerVR BXM-4-64 MC1 scores ~468 in 3DMark Wild Life -- comparable
 to Mali-G52 MP1, well below Adreno 619.  Supports GLES 3.2, Vulkan 1.3, OpenCL 3.0.
