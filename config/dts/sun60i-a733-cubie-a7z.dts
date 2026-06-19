@@ -1553,7 +1553,7 @@
 	status = "okay";
 
 	et7304: et7304@4e {
-		compatible = "nxp,ptn5110";
+		compatible = "etekmicro,et7304", "richtek,rt1715";
 		reg = <0x4e>;
 		interrupt-parent = <&r_pio>;
 		interrupts = <PL 9 IRQ_TYPE_LEVEL_LOW>;
@@ -1569,6 +1569,17 @@
 			power-role = "dual";
 			try-power-role = "sink";
 
+			altmodes {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				displayport@0 {
+					reg = <0>;
+					svid = /bits/ 16 <0xff01>;
+					/* DP source, Pin Assignment C+D, DFP_D */
+					vdo = <0x00001c46>;
+				};
+			};
+
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -1578,6 +1589,11 @@
 						remote-endpoint = <&dwc3_0_role_switch>;
 					};
 				};
+				/* TODO: port@1 (SS) and port@2 (DP) endpoints need
+				 * wiring to combo PHY mux and edp0 controller.
+				 * Requires PS8743 orientation mux node (I2C addr
+				 * from schematic) and edp0 enabled at board level.
+				 * See docs/known-issues-en.md for details. */
 			};
 		};
 	};
