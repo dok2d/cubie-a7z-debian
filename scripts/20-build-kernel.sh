@@ -52,6 +52,18 @@ sed -i "/^dtb-.*CONFIG_ARCH_SUNXI.*orangepi-zero3w/a dtb-\$(CONFIG_ARCH_SUNXI) +
 # Build kernel config
 log "Configuring kernel"
 cp "$KERNEL_CONFIG" "$KERNEL_SRC/.config"
+
+# Enable USB-C TCPC (ET7304) and DP Alt Mode — not in orangepi defconfig
+cat >> "$KERNEL_SRC/.config" <<'TYPEC_FRAGMENT'
+# USB-C PD / DP Alt Mode via ET7304 TCPC (rt1711h driver)
+CONFIG_TYPEC=y
+CONFIG_TYPEC_TCPM=y
+CONFIG_TYPEC_TCPCI=y
+CONFIG_TYPEC_RT1711H=y
+CONFIG_TYPEC_DP_ALTMODE=y
+CONFIG_USB_ROLE_SWITCH=y
+TYPEC_FRAGMENT
+
 ( yes "" || true ) | make -C "$KERNEL_SRC" CROSS_COMPILE="$CROSS_COMPILE" ARCH="$ARCH" olddefconfig 2>&1 | tail -5
 
 log "Building kernel Image and DTBs"
