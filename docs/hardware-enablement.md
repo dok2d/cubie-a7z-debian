@@ -34,7 +34,7 @@
 |---|-----------|---------------|-----------|--------|-------------------|
 | 1 | UFS storage | Samsung KLUDG4UHDC, MPHY | ~~Высокий~~ N/A | В DTS, link_startup_fail | **Чип не впаян на этом SKU.** DTS node оставлен — заработает на платах с UFS. |
 | 2 | PCIe M.2 | FPC J3, Gen3 x1 | **Высокий** | Нет в DTS | Добавить `&pcie_rc` с power/reset/wake GPIOs. По схеме: PCIE_PWR_EN, PCIE-WAKEn (PD21), PCIE-PERSTn. Питание: bldo1 (1.8V), dcdc1 (3.3V). |
-| 3 | ET7304Y TCPC | I2C на S_TWI1 | **Средний** | Нет в DTS | Включить `&s_twi1`, добавить tcpci node (addr уточнить по datasheet, вероятно 0x4E). Interrupt: TYPEC_INT GPIO. Нужен для USB-PD, role switch, DP Alt Mode. |
+| 3 | ET7304Y TCPC | I2C на S_TWI1 | ~~Средний~~ **Готово** | Работает | Бэкпорт upstream rt1711h patches (Yuanshen Cao v3). Compatible: `"etekmicro,et7304","richtek,rt1715"`. PD negotiation + role switch через TCPM. DP Alt Mode требует edp0 + PS8743 wiring. |
 | 4 | USB0 OTG (J16) | USB-C 16pin, USB0 | **Средний** | Host mode | Сейчас usb_port_type=1 (host). J16 по схеме — power input (sink only, 5.1K pull-down на CC). OTG переключение не нужно, но USB0 host можно использовать если подключить хаб. Проверить что ehci0/ohci0 видят устройства. |
 | 5 | Camera MIPI CSI | FPC J5, 4-lane | **Средний** | Disabled в DTS | `&vind0 { status = "okay" }`, включить TWI3 для I2C к камере. Нужна конкретная камера для теста. Reset: MCSI-RST-R, Standby: MCSI-STBY-R. |
 | 6 | Fan PWM | J6, 5-pin | **Средний** | Частично | PWM0_4 включён в DTS. Нужно: добавить `pwm-fan` node с thermal-cooling-cells, привязать к thermal zone CPU. Тахометр: GPIO. |
@@ -42,7 +42,7 @@
 | 8 | BT audio (PCM) | AIC8800 PCM pins | **Низкий** | Не настроен | BT HFP требует PCM шину между AIC8800 и SoC. Нужен I2S/PCM link в DTS. |
 | 9 | CPU freq scaling | AXP8191 DCDC5/DCDC3 | **Низкий** | OPP rejected | Vendor OPP использует named voltages (vfXXXX) + eFuse speed grade. Регуляторы работают, но cpufreq framework не подхватывает. Рискованно менять без понимания speed grade. |
 | 10 | HDMI CEC | Встроен в SoC | **Низкий** | Не проверено | Возможно работает из коробки. Проверить `cec-ctl` если cec модуль загружен. |
-| 11 | DisplayPort Alt Mode | Через COMBO0 + ET7304Y | **Низкий** | Нет | Требует рабочий ET7304Y TCPC + serdes combo PHY в DP mode. |
+| 11 | DisplayPort Alt Mode | Через COMBO0 + ET7304Y | **Средний** | Частично | ET7304Y TCPC работает, altmodes в DTS. Нужно: edp0 enable + PS8743 mux node + combo PHY wiring (combo0_usb ↔ combo0_dp). |
 
 ### 40-pin GPIO Header (J11)
 

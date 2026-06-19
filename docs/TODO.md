@@ -32,7 +32,7 @@
 
 | # | Задача | Приоритет | Блокер | Что даст |
 |---|--------|-----------|--------|----------|
-| 1 | ET7304Y port nodes | Средний | Реверс vendor драйвера или port nodes | USB-C PD negotiation — зарядка от PD-адаптера, DP Alt Mode через typec framework |
+| 1 | ~~ET7304Y port nodes~~ | ~~Средний~~ Готово | Бэкпорт апстримных патчей (Yuanshen Cao v3). См. `patches/kernel/0050-*.patch` | USB-C PD negotiation работает. DP Alt Mode требует edp0 + PS8743 mux wiring (отдельная задача) |
 | 3 | Camera MIPI CSI | Низкий | Нужна физическая камера (Radxa Camera 8M 219) | /dev/video*, фото/видео захват, AI inference с камеры через NPU |
 | 4 | Fan PWM | Низкий | Нужен Radxa Heatsink 6530B | Активное охлаждение (73C без кулера), thermal throttling policy |
 | 5 | PCIe + NVMe | Низкий | Radxa PCIe to M.2 M Key HAT + диск | Быстрое хранилище (~1 GB/s), загрузка с NVMe (через SPI NOR boot) |

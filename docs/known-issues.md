@@ -118,12 +118,19 @@ MOZ_X11_EGL=1 firefox
 большинства задач (композиция, веб, терминал). Для бенчмарков GPU или игр
 используйте `glmark2-es2` (EGL) или KMSDRM режим.
 
-### ET7304Y TCPC: probe failed -22
-- Чип найден на I2C bus 14 addr 0x4E
-- Generic `tcpci` драйвер возвращает -EINVAL
-- USB-C host работает без PD-negotiation (через usbc2 DTS node)
-- **Что даст исправление**: USB-C PD зарядка, DP Alt Mode через typec framework
-- Нужен vendor-specific драйвер или правильные port/connector nodes
+### ET7304Y TCPC: probe failed -22 → Решено
+
+- **ET7304Y TCPC probe -22** → бэкпортированы апстримные патчи
+  (Yuanshen Cao v3 + Charkov v3 fallback compatible). ET7304 совместим с RT1715,
+  VID 0x6DCF. Драйвер: `tcpci_rt1711h`. Compatible:
+  `"etekmicro,et7304","richtek,rt1715"`. Проверяется `test-typec.sh`.
+- USB-C PD negotiation и role switching теперь работают через mainline TCPM.
+- **Статус DP Alt Mode**: TCPC-согласование готово (altmodes node в DTS), но
+  видеовыход требует дополнительной работы:
+  - PS8743 orientation mux node (нужен I2C адрес из схемы)
+  - Подключение `edp0` DP source к typec connector
+  - Переключение combo PHY (combo0_usb ↔ combo0_dp)
+  - Вынесено в отдельную задачу.
 
 ### Rootfs: dpkg-deb -x не резолвит зависимости
 - Shared libs (libwrap0, libwtmpdb0 и т.д.) добавляются вручную в PACKAGES

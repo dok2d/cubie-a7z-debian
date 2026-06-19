@@ -102,13 +102,17 @@ Verified on real hardware (2026-06-09, 80/80 diagnostic checks pass):
 | NPU | **Working** | vipcore, vpm_run inference, ResNet50/YOLOv5 |
 | HDMI | **Working** | Video + audio (sndhdmi), hotplug daemon |
 | USB-C Host | **Working** | HID, hubs, VBUS power control |
+| USB-C PD / TCPC | **Working*** | ET7304 TCPC via rt1711h driver, PD negotiation |
 | PCIe | **Working** | Root port visible, needs M.2 adapter for NVMe |
 | SPI | **Working** | /dev/spidev1.0 on 40-pin header |
 | SSH | **Working** | Auto-start, port 22 |
 | NTP | **Working** | systemd-timesyncd + fake-hwclock |
 | zram swap | **Working** | 256 MB compressed swap (critical for 1 GB SKU) |
 
-See [known issues](docs/known-issues-en.md) for edge cases (UFS, CPU freq, TCPC).
+*USB-C PD/TCPC: ET7304 probe and PD negotiation work. DP Alt Mode video output
+needs additional mux/PHY wiring (see [known issues](docs/known-issues-en.md)).
+
+See [known issues](docs/known-issues-en.md) for edge cases (UFS, CPU freq, DP Alt Mode).
 
 ## External Source Repositories
 

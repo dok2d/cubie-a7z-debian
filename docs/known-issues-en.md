@@ -118,12 +118,19 @@ compositing is hardware-accelerated. The GLX/llvmpipe issue is cosmetic for
 most use cases (desktop compositing, web browsing, terminal work). For GPU
 benchmarking or gaming, use `glmark2-es2` (EGL) or KMSDRM mode.
 
-### ET7304Y TCPC: probe failed -22
-- Chip found on I2C bus 14 addr 0x4E
-- Generic `tcpci` driver returns -EINVAL
-- USB-C host works without PD negotiation (via usbc2 DTS node)
-- **What fixing it unlocks**: USB-C PD charging, DP Alt Mode via typec framework
-- Needs vendor-specific driver or proper port/connector nodes
+### ET7304Y TCPC: probe failed -22 → Resolved
+
+- **ET7304Y TCPC probe -22** → backported upstream patches
+  (Yuanshen Cao v3 + Charkov v3 fallback compatible). ET7304 is RT1715-compatible
+  with VID 0x6DCF. Driver: `tcpci_rt1711h`. Compatible:
+  `"etekmicro,et7304","richtek,rt1715"`. Verified by `test-typec.sh`.
+- USB-C PD negotiation and role switching now work through mainline TCPM framework.
+- **DP Alt Mode status**: TCPC negotiation ready (altmodes node in DTS), but
+  video output requires additional work:
+  - PS8743 orientation mux node (I2C address from schematic needed)
+  - `edp0` DP source controller wiring to typec connector
+  - Combo PHY mode switching (combo0_usb ↔ combo0_dp)
+  - These are tracked as a separate follow-up task.
 
 ### Rootfs: dpkg-deb -x does not resolve dependencies
 - Shared libs (libwrap0, libwtmpdb0, etc.) are added manually to PACKAGES

@@ -214,9 +214,22 @@ guessed AP6275 — that was wrong. Update accordingly.
 - Drivers all in BSP kernel under `drivers/usb/host/sunxi_*`. No firmware
   blobs needed for the controllers themselves.
 
-### USB-PD controller (if discrete chip is fitted)
-- Find on schematic page 12. If present, likely needs a TI/CYPRESS PD
-  driver or vendor handler. Defer until v1 boots.
+### USB-PD / TCPC controller: Etek ET7304Y
+
+| Field | Value |
+|---|---|
+| Part | **ET7304Y** (ETEK Microelectronics) |
+| Bus | I2C (S_TWI1, PL12/PL13), addr 0x4E |
+| IRQ | PL9, active-low |
+| Compatible | `"etekmicro,et7304", "richtek,rt1715"` |
+| VID | 0x6DCF |
+| DID | 0x2173 (shared with Richtek RT1715) |
+| Driver | `tcpci_rt1711h` (mainline, backported via `patches/kernel/0050-*.patch`) |
+| Firmware | None required (TCPCI register-compatible) |
+
+The ET7304 is register-compatible with the Richtek RT1715 TCPC. It handles
+USB-C PD negotiation, role switching (host/device), and DP Alt Mode
+negotiation via the Linux TCPM framework.
 
 ---
 
@@ -287,7 +300,8 @@ Source of these blobs:
 | HDMI audio | **Working** | sndhdmi soundcard, aplay works |
 | GPU gaming | **Working** | Quake II 60fps GLES3, Half-Life 60fps GLES3 |
 | Hardware video decode | Not tested | BSP `cedrus`-equivalent untested on sun60i; defer |
-| USB-C DP alt mode | Not working | Needs ET7304Y TCPC driver (probe -22) |
+| USB-C TCPC / PD | Working* | ET7304 via rt1711h driver, PD negotiation works |
+| USB-C DP alt mode | Partial | TCPC ready, needs edp0 + PS8743 mux wiring |
 | Wake-on-WLAN | Not tested | Driver-side; not a current goal |
 | Suspend / resume | Not tested | Allwinner BSP support varies; defer |
 

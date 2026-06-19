@@ -32,7 +32,7 @@ Known issues: [known-issues-en.md](known-issues-en.md)
 
 | # | Task | Priority | Blocker | What it unlocks |
 |---|------|----------|---------|-----------------|
-| 1 | ET7304Y port nodes | Medium | Reverse-engineer vendor driver or port nodes | USB-C PD negotiation — charging from PD adapters, DP Alt Mode via typec framework |
+| 1 | ~~ET7304Y port nodes~~ | ~~Medium~~ Done | Backported upstream patches (Yuanshen Cao v3). See `patches/kernel/0050-*.patch` | USB-C PD negotiation works. DP Alt Mode needs edp0 + PS8743 mux wiring (separate task) |
 | 3 | Camera MIPI CSI | Low | Need Radxa Camera 8M 219 | /dev/video*, photo/video capture, AI inference from camera via NPU |
 | 4 | Fan PWM | Low | Need Radxa Heatsink 6530B | Active cooling (73C without fan), thermal throttling policy |
 | 5 | PCIe + NVMe | Low | Need Radxa PCIe to M.2 M Key HAT + drive | Fast storage (~1 GB/s), NVMe boot (via SPI NOR boot) |
