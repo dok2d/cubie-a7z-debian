@@ -29,6 +29,35 @@
 		enable-active-high;
 	};
 
+	/* USB-C DP Alt Mode — PHY switcher between combo0_dp and combo0_usb.
+	   Receives orientation/mode events from TCPM (ET7304) and reconfigures
+	   combo PHY lanes via phy_set_mode_ext().
+	   Reference: OrangePi Zero3W DTS (same SoC). */
+	phy_switcher: phy_switcher@10 {
+		compatible = "allwinner,sunxi-phy-switcher";
+		reg = <0x0 0x10 0x0 0x0>;
+		phys = <&combo0_dp>, <&combo0_usb>;
+		phy-names = "dp-phy", "usb-phy";
+		dp_configure_delay = <50>;
+		status = "okay";
+		mode-switch;
+		orientation-switch;
+		svid = <0xff01>;
+
+		port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			usbdp_orientation_switch: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&usbc2_orien_sw>;
+			};
+			usbdp_dp_altmode_mux: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&dp_altmode_mux>;
+			};
+		};
+	};
+
 	standby_param: standby_param {
 		vcc-io  = <0x00000000400>;
 		vcc-efuse = <0x0000e000000>;
@@ -1344,6 +1373,43 @@
 	status = "okay";
 };
 
+/* TV1 (TCON4) — timing controller for DP/eDP output pipe.
+   Feeds edp0 controller. Must be enabled for DP Alt Mode video. */
+&tv1 {
+	status = "okay";
+};
+
+/* eDP/DP source controller — configured as DP source for USB-C Alt Mode.
+   compatible changed from "allwinner,drm-edp" to "allwinner,drm-dp" to
+   register as DRM_MODE_CONNECTOR_DisplayPort (not eDP).
+   Signal path: DE → tcon4 (tv1) → edp0 → combo0_dp → USB-C connector.
+   Reference: OrangePi Zero3W DTS. */
+&edp0 {
+	compatible = "allwinner,drm-dp";
+	status = "okay";
+	edp_colordepth = <8>;
+	edp_color_fmt = <0>;	/* 0=RGB */
+	fps_limit_60 = <1>;
+	vdd-edp-supply = <&reg_dcdc2>;
+	extcon = <&serdes>;
+
+	/* Blacklist 4K modes — combo PHY may not sustain HBR3 reliably */
+	blacklist_modes = "4096x2160@60",
+			"4096x2160@59",
+			"4096x2160@50",
+			"3840x2160@60",
+			"3840x2160@59",
+			"3840x2160@50";
+
+	ports {
+		edp_out: port@1 {
+			edp0_out_typec: endpoint@0 {
+				reg = <0>;
+			};
+		};
+	};
+};
+
 &dlcd0 {
 	status = "disabled"; /* no DSI display on SBC */
 };
@@ -1495,6 +1561,14 @@
 &serdes {
 	serdes1v8-supply = <&reg_cldo5>;
 	status = "okay";
+
+	combophy0: combo-phy0@6c01000 {
+		/* Lane polarity — board-specific (OPi 4 Pro: no inversion) */
+		lane_invert = <0 0 0 0>;
+		/* Lane mapping for DP Alt Mode (direct) */
+		lane_remap = <0 1 2 3>;
+		typec_remap = <0 1 2 3>;
+	};
 };
 
 /* HDMI audio — I2S3 → hdmi_codec */
@@ -1589,11 +1663,18 @@
 						remote-endpoint = <&dwc3_0_role_switch>;
 					};
 				};
-				/* TODO: port@1 (SS) and port@2 (DP) endpoints need
-				 * wiring to combo PHY mux and edp0 controller.
-				 * Requires PS8743 orientation mux node (I2C addr
-				 * from schematic) and edp0 enabled at board level.
-				 * See docs/known-issues-en.md for details. */
+				port@1 {
+					reg = <1>;
+					usbc2_orien_sw: endpoint@0 {
+						remote-endpoint = <&usbdp_orientation_switch>;
+					};
+				};
+				port@2 {
+					reg = <2>;
+					dp_altmode_mux: endpoint@0 {
+						remote-endpoint = <&usbdp_dp_altmode_mux>;
+					};
+				};
 			};
 		};
 	};
