@@ -22,8 +22,7 @@ if [ -d /sys/class/typec/port0 ]; then
 fi
 
 echo "=== [3/4] DP altmode driver loaded ==="
-check grep -q typec_displayport /proc/modules || \
-  check test -d /sys/bus/typec/drivers/typec_displayport
+check sh -c 'grep -q typec_displayport /proc/modules 2>/dev/null || test -d /sys/bus/typec/drivers/typec_displayport'
 
 echo "=== [4/4] partner detection (if anything plugged) ==="
 if [ -d /sys/class/typec/port0/port0-partner ]; then
