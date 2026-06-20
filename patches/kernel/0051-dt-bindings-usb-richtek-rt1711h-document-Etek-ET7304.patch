@@ -1,6 +1,6 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Yuanshen Cao <1677399301gg@gmail.com>
-Date: Thu, 20 Feb 2026 09:00:00 +0800
+From 4744a6150129216dbc9e754cdbd7d31b9937429d Mon Sep 17 00:00:00 2001
+From: Cubie A7Z Build <build@cubie-a7z>
+Date: Sat, 20 Jun 2026 14:58:10 +0000
 Subject: [PATCH] dt-bindings: usb: richtek,rt1711h: document Etek ET7304 TCPC
 
 Add the Etek ET7304 as a compatible device in the RT1711H TCPC
@@ -9,40 +9,37 @@ Richtek RT1715 and uses a fallback compatible string:
 
   compatible = "etekmicro,et7304", "richtek,rt1715";
 
-This follows the approach proposed by Alexey Charkov to use
-fallback compatibles for TCPCI chips that reimplement RT1711H/RT1715
-registers.
-
-Upstream references:
-  https://lore.kernel.org/all/20260220-et7304-v3-1-ede2d9634957@gmail.com/
-  https://lkml.iu.edu/hypermail/linux/kernel/2603.2/05539.html
-
 Signed-off-by: Yuanshen Cao <1677399301gg@gmail.com>
-Signed-off-by: Alexey Charkov <alchark@gmail.com>
 [backport-6.6: adapted for orangepi BSP kernel 6.6.98]
 ---
- Documentation/devicetree/bindings/usb/richtek,rt1711h.yaml | 6 ++++++
- 1 file changed, 6 insertions(+)
+ .../devicetree/bindings/usb/richtek,rt1711h.yaml     | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/Documentation/devicetree/bindings/usb/richtek,rt1711h.yaml b/Documentation/devicetree/bindings/usb/richtek,rt1711h.yaml
-index 111111111111..222222222222 100644
+index 8da4d2ad1..ebbca9557 100644
 --- a/Documentation/devicetree/bindings/usb/richtek,rt1711h.yaml
 +++ b/Documentation/devicetree/bindings/usb/richtek,rt1711h.yaml
-@@ -17,9 +17,15 @@ properties:
+@@ -18,11 +18,17 @@ description: |
+ 
+ properties:
    compatible:
-     oneOf:
-       - enum:
-           - richtek,rt1711h
-           - richtek,rt1715
+-    enum:
+-      - richtek,rt1711h
+-      - richtek,rt1715
++    oneOf:
++      - enum:
++          - richtek,rt1711h
++          - richtek,rt1715
 +      - items:
 +          - const: etekmicro,et7304
 +          - const: richtek,rt1715
-+    description:
+     description:
+       RT1711H support PD20, RT1715 support PD30 except Fast Role Swap.
 +      The Etek ET7304 is register-compatible with Richtek RT1715 and
 +      should use "richtek,rt1715" as a fallback compatible.
-
+ 
    reg:
      maxItems: 1
---
-2.39.2
+-- 
+2.39.5
 
