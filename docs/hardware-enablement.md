@@ -42,7 +42,7 @@
 | 8 | BT audio (PCM) | AIC8800 PCM pins | **Низкий** | Не настроен | BT HFP требует PCM шину между AIC8800 и SoC. Нужен I2S/PCM link в DTS. |
 | 9 | CPU freq scaling | AXP8191 DCDC5/DCDC3 | **Низкий** | OPP rejected | Vendor OPP использует named voltages (vfXXXX) + eFuse speed grade. Регуляторы работают, но cpufreq framework не подхватывает. Рискованно менять без понимания speed grade. |
 | 10 | HDMI CEC | Встроен в SoC | **Низкий** | Не проверено | Возможно работает из коробки. Проверить `cec-ctl` если cec модуль загружен. |
-| 11 | DisplayPort Alt Mode | Через COMBO0 + ET7304Y | **Средний** | Частично | ET7304Y TCPC работает, altmodes в DTS. Нужно: edp0 enable + PS8743 mux node + combo PHY wiring (combo0_usb ↔ combo0_dp). |
+| 11 | DisplayPort Alt Mode | Через COMBO0 + ET7304Y | **Средний** | **Реализовано** | Полный пайплайн: sunxi-phy-switcher + edp0 (drm-dp) + tv1 (tcon4). Runtime USB↔DP switching через combo PHY. **Нужен тест на железе.** |
 
 ### 40-pin GPIO Header (J11)
 

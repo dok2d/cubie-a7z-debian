@@ -460,37 +460,38 @@ cat /sys/class/drm/card0-DP-*/edid | edid-decode
 
 ## Приоритеты
 
-| Фаза | Требует железо? | Блокер | Приоритет |
-|------|-----------------|--------|-----------|
-| 1. PS8743 ресёрч | Да (схема PDF) | Нет | **Высокий** — начать с этого |
-| 2. edp0 ресёрч | sources/ | Нет | **Высокий** |
-| 3. Combo PHY ресёрч | sources/ | Нет | **Высокий** — определяет архитектуру |
-| 4. PS8743 DTS | Да (железо) | Фаза 1 | Средний |
-| 5. edp0 enable | Да (железо) | Фаза 2 | Средний |
-| 6. PHY integration | Да (железо) | Фаза 3 | **Критический** — главный риск |
-| 7. Тестирование | Да | Фазы 4-6 | Средний |
-| 8. Документация | Нет | Фаза 7 | Низкий |
+| Фаза | Требует железо? | Блокер | Приоритет | Статус |
+|------|-----------------|--------|-----------|--------|
+| 1. PS8743 ресёрч | Да (схема PDF) | Нет | **Высокий** | ✅ Решено: используем SUNXI_PHY_SWITCHER вместо PS8743 |
+| 2. edp0 ресёрч | sources/ | Нет | **Высокий** | ✅ Решено: `"allwinner,drm-dp"` поддерживает DP source |
+| 3. Combo PHY ресёрч | sources/ | Нет | **Высокий** | ✅ Решено: runtime switching через phy_set_mode() |
+| 4. PHY switcher DTS | Нет | Фаза 1 | Средний | ✅ Реализовано |
+| 5. edp0 enable | Нет | Фаза 2 | Средний | ✅ Реализовано |
+| 6. PHY integration | Нет | Фаза 3 | **Критический** | ✅ Реализовано |
+| 7. Тестирование | Да | Фазы 4-6 | Средний | ⏳ Нужен тест на железе |
+| 8. Документация | Нет | Фаза 7 | Низкий | ✅ Обновлено |
 
-## Риски
+## Риски (обновлено 2026-06-20)
 
-1. **Combo PHY не переключается runtime** — нужен static mode fallback
-   или vendor kernel patch. Вероятность: ~40%.
+1. ~~**Combo PHY не переключается runtime**~~ → **Решено**: BSP драйвер
+   (`sunxi-cadence-combophy.c`) поддерживает `phy_set_mode(PHY_MODE_DP)`,
+   включая 2+2 mode (Pin Assignment D). SUNXI_PHY_SWITCHER — glue layer.
 
-2. **edp0 драйвер не поддерживает DP** (только eDP) — нужен патч
-   или обход. Вероятность: ~30%. eDP и DP отличаются link training
-   и HPD. BSP может не иметь DP path.
+2. ~~**edp0 драйвер не поддерживает DP**~~ → **Решено**: драйвер имеет
+   два compatible: `"allwinner,drm-edp"` (eDP) и `"allwinner,drm-dp"` (DP).
+   DP mode: `controller_mode = 1`, `DRM_MODE_CONNECTOR_DisplayPort`.
 
-3. **PS8743 не тот чип** — на плате может оказаться другой mux.
-   `CONFIG_TYPEC_MUX_PS8743=y` в defconfig orangepi может быть для
-   Orange Pi 4 Pro, а не Cubie A7Z. Вероятность: ~20%.
+3. ~~**PS8743 не тот чип**~~ → **Решено**: используем SUNXI_PHY_SWITCHER
+   вместо PS8743. Референс: OrangePi Zero3W (тот же SoC, рабочий DP Alt Mode).
+   PHY switcher управляет combo PHY напрямую, PS8743 не нужен.
 
-4. **AUX channel routing** — DP AUX (для EDID, link training) идёт
-   через SBU1/SBU2 на USB-C. Если PS8743 не роутит SBU→AUX —
-   нужен отдельный AUX switch или прямое подключение.
+4. **AUX channel routing** — aux_hpd_phy в combo PHY обрабатывает AUX канал.
+   SUNXI_PHY_SWITCHER может управлять AUX polarity через GPIO (aux_p/aux_n),
+   но на Cubie A7Z пины PL12/PL13 заняты S_TWI1. AUX routing через combo PHY
+   hardware. **Может потребовать подбора lane_invert на железе.**
 
-5. **HPD (Hot Plug Detect)** — `aux_hpd_phy` в dtsi. Непонятно,
-   получает ли edp0 HPD от TCPM или от физического пина. Для USB-C
-   DP HPD должен приходить через TCPM (virtual HPD), не через пин.
+5. **Lane inversion** — board-specific. OPi 4 Pro: `<0 0 0 0>`, Zero3W: `<1 1 1 1>`.
+   Начинаем с `<0 0 0 0>`. Если DP не заработает — попробовать `<1 1 1 1>`.
 
 ## Полезные ссылки
 

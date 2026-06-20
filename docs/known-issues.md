@@ -125,12 +125,13 @@ MOZ_X11_EGL=1 firefox
   VID 0x6DCF. Драйвер: `tcpci_rt1711h`. Compatible:
   `"etekmicro,et7304","richtek,rt1715"`. Проверяется `test-typec.sh`.
 - USB-C PD negotiation и role switching теперь работают через mainline TCPM.
-- **Статус DP Alt Mode**: TCPC-согласование готово (altmodes node в DTS), но
-  видеовыход требует дополнительной работы:
-  - PS8743 orientation mux node (нужен I2C адрес из схемы)
-  - Подключение `edp0` DP source к typec connector
-  - Переключение combo PHY (combo0_usb ↔ combo0_dp)
-  - Вынесено в отдельную задачу.
+- **Статус DP Alt Mode**: Полный пайплайн DP Alt Mode реализован:
+  - `sunxi-phy-switcher` управляет ориентацией + переключением USB↔DP через combo PHY
+  - `edp0` включён как DP source (`compatible = "allwinner,drm-dp"`)
+  - `tv1` (tcon4) timing controller включён для DP pipe
+  - Путь сигнала: DE → tcon4 → edp0 → combo0_dp → phy_switcher → USB-C
+  - **Требуется тест на железе**: значения lane_invert могут потребовать подбора.
+    Если DP не заработает, попробовать `lane_invert = <1 1 1 1>` в serdes combophy0.
 
 ### Rootfs: dpkg-deb -x не резолвит зависимости
 - Shared libs (libwrap0, libwtmpdb0 и т.д.) добавляются вручную в PACKAGES

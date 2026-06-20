@@ -125,12 +125,13 @@ benchmarking or gaming, use `glmark2-es2` (EGL) or KMSDRM mode.
   with VID 0x6DCF. Driver: `tcpci_rt1711h`. Compatible:
   `"etekmicro,et7304","richtek,rt1715"`. Verified by `test-typec.sh`.
 - USB-C PD negotiation and role switching now work through mainline TCPM framework.
-- **DP Alt Mode status**: TCPC negotiation ready (altmodes node in DTS), but
-  video output requires additional work:
-  - PS8743 orientation mux node (I2C address from schematic needed)
-  - `edp0` DP source controller wiring to typec connector
-  - Combo PHY mode switching (combo0_usb ↔ combo0_dp)
-  - These are tracked as a separate follow-up task.
+- **DP Alt Mode status**: Full DP Alt Mode pipeline implemented:
+  - `sunxi-phy-switcher` handles orientation + USB↔DP mode switching via combo PHY
+  - `edp0` enabled as DP source (`compatible = "allwinner,drm-dp"`)
+  - `tv1` (tcon4) timing controller enabled for DP pipe
+  - Signal path: DE → tcon4 → edp0 → combo0_dp → phy_switcher → USB-C
+  - **Needs hardware testing**: lane_invert values may need board-specific tuning.
+    If DP output doesn't work, try `lane_invert = <1 1 1 1>` in serdes combophy0.
 
 ### Rootfs: dpkg-deb -x does not resolve dependencies
 - Shared libs (libwrap0, libwtmpdb0, etc.) are added manually to PACKAGES

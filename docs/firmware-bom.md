@@ -291,7 +291,7 @@ Source of these blobs:
 
 ---
 
-## Subsystem Status (as of 2026-06-09)
+## Subsystem Status (as of 2026-06-20)
 
 | Function | Status | Notes |
 |---|---|---|
@@ -300,8 +300,8 @@ Source of these blobs:
 | HDMI audio | **Working** | sndhdmi soundcard, aplay works |
 | GPU gaming | **Working** | Quake II 60fps GLES3, Half-Life 60fps GLES3 |
 | Hardware video decode | Not tested | BSP `cedrus`-equivalent untested on sun60i; defer |
-| USB-C TCPC / PD | Working* | ET7304 via rt1711h driver, PD negotiation works |
-| USB-C DP alt mode | Partial | TCPC ready, needs edp0 + PS8743 mux wiring |
+| USB-C TCPC / PD | **Working** | ET7304 via rt1711h driver, PD negotiation works |
+| USB-C DP alt mode | **Implemented** | Full pipeline: phy_switcher + edp0 (drm-dp) + tv1. Needs HW test |
 | Wake-on-WLAN | Not tested | Driver-side; not a current goal |
 | Suspend / resume | Not tested | Allwinner BSP support varies; defer |
 
